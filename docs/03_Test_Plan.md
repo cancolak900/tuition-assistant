@@ -99,6 +99,20 @@ Run: `bash scripts/smoke.sh [base-url]` (default `http://localhost`). It needs o
 | E-05 | Direct backend port from outside | connection refused (only :80 open) |
 | E-06 | Swagger at `/api/v1/docs` | 200 |
 
+## 5a. Assistant scenarios A1–A6 (`scripts/scenarios.py`)
+
+Runs the SRS scenarios against a running stack through the gateway, with the real Gemini model. Only the Python standard library is needed.
+
+```bash
+python scripts/scenarios.py                        # all six, against http://localhost (logs in as s1001)
+python scripts/scenarios.py --only A1,A3           # selected scenarios
+python scripts/scenarios.py --yes --amount 100     # A4 confirms without asking (it makes a simulated payment)
+python scripts/scenarios.py --chat                 # free chat; a payment card asks Confirm/Cancel in the terminal
+python scripts/scenarios.py --base-url http://<aws-host> --user s1002 --password 'Pass1002!'
+```
+
+For every turn it prints the tool trace (step, kind, tool, status, duration, input) and the reply, then checks the scenario: A1 policy over MCP and "September 30 … §2.1"; A2 live balance over REST; A3 both tools and a §3.x citation; A4 confirmation card first, then `SUCCESS`, the new balance and an identical answer to a repeated Confirm; A5 no data of S1002 and a 403 refusal; A6 the 4th mobile call of the day gets `429` (uses S1020 by default; `--mobile-student` picks another seed student). Without `--yes`, A4 asks before paying. The exit code is 1 if any check fails. Text checks depend on the LLM's wording, so a failed text check should be read, not just counted.
+
 ## 6. Evidence checklist (what goes into `docs/evidence/` and the README)
 - [ ] `pytest -v` output and a screenshot of a green GitHub Actions run
 - [ ] 3 MCP retrieval screenshots/logs (M-03…M-05)
