@@ -40,7 +40,7 @@ TOOLS: list[ToolSpec] = [
         parameters={
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "Short search phrase in English, e.g. 'fall payment deadline'"},
+                "query": {"type": "string", "description": "Short English keywords, even for a question in another language, e.g. 'fall payment deadline'"},
                 "top_k": {"type": "integer", "description": "Number of sections to return (1-10, default 3)"},
             },
             "required": ["query"],
@@ -87,6 +87,7 @@ class ToolContext:
     request_id: str | None = None
     session: Session | None = None  # needed by pay_tuition to store the pending payment
     pending_ttl: timedelta = timedelta(minutes=5)
+    payment_prepared: bool = False  # set once a payment card was prepared in this turn
     sub_steps: list["SubStep"] = field(default_factory=list)  # service calls a tool makes internally
 
 
@@ -188,6 +189,10 @@ class ToolExecutor:
             return ToolOutcome.error("INVALID_ARGUMENT", "amount must be a positive number with at most 2 decimals, like 500.00.")
         if ctx.session is None:
             return ToolOutcome.error("NOT_AVAILABLE", "Payments can only be prepared in a chat session.")
+        if ctx.payment_prepared:
+            # One card per turn: a second one would silently replace the first, which the student never saw.
+            return ToolOutcome.error("ONE_PAYMENT_AT_A_TIME", "A payment card was already prepared in this answer. Nothing was prepared "
+                                     "for this term. Ask the student to confirm the first payment; the next one can be prepared afterwards.")
         # Payment is always for the logged-in student: the LLM cannot choose another student here.
         start = time.perf_counter()
         live = await self.tuition.query_tuition(ctx.student_no, term, ctx.token, ctx.request_id)
@@ -207,6 +212,7 @@ class ToolExecutor:
         )
         # A new request replaces an older pending payment; the old actionId stops working.
         ctx.session.pending = PendingPayment(action=action, transaction_id=f"AGT-{uuid.uuid4().hex}")
+        ctx.payment_prepared = True
         return ToolOutcome(True, {
             "status": "AWAITING_USER_CONFIRMATION", "actionId": action.action_id, "term": term, "amount": action.amount,
             "currency": currency, "balance": action.balance, "balanceAfter": action.balance_after,

@@ -89,8 +89,11 @@ def search_tuition_policies(query: str, top_k: int = 3) -> PolicySearchResult:
     Returns the best matching excerpts with their section number (e.g. "3.2") and heading, so the
     answer can cite "§3.2". Not a source of student balances or payment status.
 
+    The document is in English: write the query as short English keywords, even when the student
+    writes in another language (e.g. "fall installment due dates", not "güz taksit").
+
     Args:
-        query: the policy question or keywords, e.g. "installment eligibility".
+        query: English keywords for the policy question, e.g. "installment eligibility".
         top_k: how many sections to return (1-10, default 3).
     """
     index = get_index()

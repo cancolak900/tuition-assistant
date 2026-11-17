@@ -1,0 +1,5 @@
+# Turkish conversation after prompt tuning (policy search in English keywords, installment check with the live balance,
+# one payment card per answer, refusals and payment texts in Turkish). The prepared payment was cancelled.
+# Date: 2026-11-17. Local docker compose, real Gemini, through Kong. User: s1001.
+
+

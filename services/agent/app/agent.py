@@ -16,6 +16,7 @@ from app.clients import PolicyClient, ToolOutcome, TuitionClient
 from app.config import Settings
 from app.errors import AppError
 from app.llm import LLM, GeminiLLM, ToolResult
+from app.messages import detect_language, text
 from app.prompts import system_prompt
 from app.schemas import ChatResponse, ConfirmResponse, PaymentResult, PendingAction, TraceStep
 from app.security import CurrentUser
@@ -85,6 +86,7 @@ class Agent:
         async with session.lock:  # one turn at a time per session keeps the history consistent
             ctx = ToolContext(student_no=user.student_no, token=user.token, request_id=request_id, session=session,
                               pending_ttl=timedelta(minutes=self.settings.pending_action_ttl_minutes))
+            session.language = detect_language(message) or session.language
             turn: list[dict[str, Any]] = [{"role": "user", "text": message}]
             trace: list[TraceStep] = []
             before = session.pending
@@ -109,7 +111,7 @@ class Agent:
 
     async def _loop(self, past: list[dict[str, Any]], turn: list[dict[str, Any]], trace: list[TraceStep], ctx: ToolContext,
                     meta: dict[str, Any]) -> str:
-        system = system_prompt(ctx.student_no)
+        system = system_prompt(ctx.student_no, language=ctx.session.language if ctx.session else None)
         tools = await self.executor.specs()
         for _ in range(self.settings.max_tool_rounds):
             answer = await self.llm.generate(system, past + turn, tools)
@@ -156,7 +158,7 @@ class Agent:
 
         if decision == "cancel":
             session.pending = None
-            reply = f"Payment cancelled. Nothing was paid for {action.term}."
+            reply = text(session.language, "cancelled", term=action.term)
             return self._finish(session, action_id, ConfirmResponse(session_id=session.id, reply=reply, trace=[]), "(I cancelled the payment.)")
 
         step_input = {"studentNo": action.student_no, "term": action.term, "amount": action.amount, "transactionId": pending.transaction_id}
@@ -172,18 +174,18 @@ class Agent:
         if outcome.ok:
             session.pending = None
             payment = PaymentResult.model_validate(outcome.data)
-            reply = (f"Payment successful: {payment.paid_amount} {payment.currency} for {payment.term}. "
-                     f"Remaining balance: {payment.remaining_balance} {payment.currency}. Transaction id: {payment.transaction_id}.")
+            reply = text(session.language, "already" if payment.status == "ALREADY_PROCESSED" else "success", amount=payment.paid_amount,
+                         currency=payment.currency, term=payment.term, balance=payment.remaining_balance, tx=payment.transaction_id)
             res = ConfirmResponse(session_id=session.id, reply=reply, trace=[step], payment=payment)
             return self._finish(session, action_id, res, "(I confirmed the payment.)")
 
         code = outcome.data.get("code")
         if code in RETRYABLE_PAYMENT_ERRORS:
             # Result unknown: keep the card. Confirming again reuses the same transactionId, so it cannot pay twice.
-            reply = "I could not reach the payment service, so I do not know yet if the payment went through. Press Confirm again; you will not be charged twice."
+            reply = text(session.language, "unknown")
             return ConfirmResponse(session_id=session.id, reply=reply, trace=[step], pending_action=action)
         session.pending = None
-        reply = f"The payment was not made: {outcome.data.get('message') or code}"
+        reply = text(session.language, "failed", reason=outcome.data.get("message") or code)
         return self._finish(session, action_id, ConfirmResponse(session_id=session.id, reply=reply, trace=[step]), "(I confirmed the payment.)")
 
     async def _already_paid(self, action: PendingAction, transaction_id: str, token: str, request_id: str | None) -> ToolOutcome:

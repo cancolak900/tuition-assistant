@@ -38,6 +38,7 @@ class Session:
     history: list[Any] = field(default_factory=list)  # LLM-specific message objects
     pending: PendingPayment | None = None  # at most one pending payment per session
     completed_actions: dict[str, Any] = field(default_factory=dict)  # actionId -> ConfirmResponse (repeat /confirm = same answer)
+    language: str = "en"  # of the last clear user message; used for the fixed payment texts
     updated_at: datetime = field(default_factory=utcnow)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False, compare=False)
 
