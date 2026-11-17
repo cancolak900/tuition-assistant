@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.errors import register_error_handlers
-from app.routers import health
+from app.routers import auth, health
 
 
 def create_app() -> FastAPI:
@@ -23,8 +23,9 @@ def create_app() -> FastAPI:
     )
     register_error_handlers(app)
 
-    # Routers added in later steps: auth, mobile, banking, admin.
+    # Routers added in later steps: mobile, banking, admin.
     app.include_router(health.router, prefix=prefix)
+    app.include_router(auth.router, prefix=prefix)
     return app
 
 

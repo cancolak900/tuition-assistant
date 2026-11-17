@@ -194,6 +194,7 @@ Swagger UI: `/api/v1/docs`. OpenAPI JSON: `/api/v1/openapi.json`. The exported c
 | # | Method & path | Auth (role) | Request | 2xx response | Errors |
 |---|---|---|---|---|---|
 | 1 | `POST /auth/login` | — | `{username, password}` | `200 {accessToken, tokenType, expiresIn, role, studentNo}` | 401 |
+| 1b | `GET /auth/me` | any valid token | — | `200 {userId, username, role, studentNo}` | 401 |
 | 2 | `GET /mobile/tuition/{studentNo}?term=` | none, **3/day/student** | — | `200 TuitionSummary` | 404, 422, **429** (Kong) |
 | 3 | `GET /banking/tuition/{studentNo}?term=` | student (self), bank | — | `200 TuitionSummary` | 401, 403, 404 |
 | 4 | `POST /banking/payments` | student (self), bank | `{studentNo, term, amount, transactionId}` | `201 {status:"SUCCESS", transactionId, paidAmount, totalPaid, remainingBalance, currency}` | 401, 403, 404, **409** dup txn, **422** amount ≤0 / > balance |
@@ -224,11 +225,12 @@ Amounts are serialized as strings, so no float rounding can occur.
 
 ## 6. Authentication & authorization
 
-1. `POST /auth/login` checks the bcrypt hash and returns a JWT: `{iss:"tuition-auth", sub, role, studentNo, iat, exp(+60m)}`, signed HS256 with `JWT_SECRET`.
+1. `POST /auth/login` checks the bcrypt hash (an unknown username and a wrong password return the same `401 INVALID_CREDENTIALS`, so usernames cannot be probed) and returns a JWT: `{iss:"tuition-auth", sub, role, studentNo, iat, exp(+60m)}`, signed HS256 with `JWT_SECRET`.
 2. **Kong** `jwt` plugin on the protected routes: it verifies the signature and `exp`. The consumer `tuition-auth` holds the same secret. An invalid or missing token gets `401` at the edge, before reaching the service.
 3. **Service** (defense in depth): it verifies the JWT again, then authorizes:
    - `/banking/*`: role `bank` → any student; role `student` → only `token.studentNo == path/body studentNo`, otherwise `403 FORBIDDEN_OTHER_STUDENT`.
    - `/admin/*`: role `admin` only.
+   - Token errors: missing → `401 UNAUTHORIZED`, expired → `401 TOKEN_EXPIRED`, bad signature/issuer/claims → `401 INVALID_TOKEN`. Wrong role → `403 FORBIDDEN_ROLE`.
 4. **Agent**: it reads the user's `Authorization` header (Kong passes it through) and reuses it for its REST tool calls. It holds **no** service account, so a prompt such as "show S1002's balance" ends in a `403`, and the LLM is told to refuse.
 
 ---

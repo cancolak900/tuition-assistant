@@ -25,6 +25,10 @@ def _reset_caches() -> None:
 
 @pytest.fixture(scope="session")
 def postgres_url() -> Iterator[str]:
+    """A throwaway PostgreSQL 16. Set TEST_DATABASE_URL to use an existing (empty) database instead of Docker."""
+    if url := os.environ.get("TEST_DATABASE_URL"):
+        yield url
+        return
     from testcontainers.postgres import PostgresContainer
 
     with PostgresContainer("postgres:16-alpine", driver="psycopg") as pg:
@@ -85,3 +89,21 @@ def make_client(monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture
 def client(make_client, postgres_url: str) -> TestClient:
     return make_client(postgres_url)
+
+
+@pytest.fixture
+def api(make_client, seeded_url: str) -> TestClient:
+    """TestClient over the migrated + seeded database."""
+    return make_client(seeded_url)
+
+
+@pytest.fixture
+def login(api):
+    """login("s1001", "Pass1001!") -> {"Authorization": "Bearer ..."}"""
+
+    def _login(username: str, password: str) -> dict[str, str]:
+        res = api.post("/api/v1/auth/login", json={"username": username, "password": password})
+        assert res.status_code == 200, res.text
+        return {"Authorization": f"Bearer {res.json()['accessToken']}"}
+
+    return _login
