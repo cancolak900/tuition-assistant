@@ -277,7 +277,7 @@ def search_tuition_policies(query: str, top_k: int = 3) -> dict:
 ```
 Returns `{document, documentId, matches:[{section, heading, text, score}]}`. Matches with score 0 are dropped.
 
-**Transport**: streamable HTTP at `http://mcp-server:8100/mcp` (internal only). `python -m app.server --stdio` runs it for **MCP Inspector** screenshots of the 3 retrieval tests (FR-24).
+**Transport**: streamable HTTP at `http://mcp-server:8100/mcp` (internal only), stateless with JSON responses, so no server-side session can be lost between agent calls. `python -m app.server --stdio` runs it for **MCP Inspector** screenshots of the 3 retrieval tests (FR-24). The tool returns a typed result (Pydantic), so `tools/list` publishes an **output schema** and `tools/call` returns `structuredContent`. DNS-rebinding protection is on; accepted `Host` headers come from `MCP_ALLOWED_HOSTS` (default `mcp-server:*,localhost:*,127.0.0.1:*`). `GET /health` reports the loaded index for the compose healthcheck. `python -m scripts.query_client "late fee"` is a small CLI client for manual checks.
 
 ---
 

@@ -33,5 +33,13 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
 
+  mcp-server:
+    build: ./services/mcp-server
+    environment:
+      MCP_ALLOWED_HOSTS: mcp-server:*,localhost:*,127.0.0.1:*
+    # Local only, for MCP Inspector. Agents reach it inside the network at http://mcp-server:8100/mcp.
+    ports:
+      - "127.0.0.1:8100:8100"
+
 volumes:
   pgdata:
