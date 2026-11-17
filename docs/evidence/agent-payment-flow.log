@@ -1,0 +1,10 @@
+# Agent payment confirmation flow end to end (local docker compose, real Gemini, through Kong)
+# Date: 2026-11-17. User: s1001. Shows: cancel -> nothing paid; confirm -> one payment; repeated confirm -> same result, no new payment.
+
+
+
+# tuition-api access log (only ONE POST /banking/payments)
+
+
+# payments table: rows created by the agent
+AGT-1d01e47bd7db4810ae34c62de80f5e06|100.00|agent

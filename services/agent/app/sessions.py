@@ -19,13 +19,25 @@ def utcnow() -> datetime:
 
 
 @dataclass
+class PendingPayment:
+    """A payment the LLM prepared. Only POST /confirm can execute it, always with this transactionId."""
+
+    action: Any  # schemas.PendingAction, as shown to the user
+    transaction_id: str
+
+    @property
+    def expired(self) -> bool:
+        return utcnow() >= self.action.expires_at
+
+
+@dataclass
 class Session:
     id: str
     user_id: int
     student_no: str
     history: list[Any] = field(default_factory=list)  # LLM-specific message objects
-    pending: dict[str, Any] | None = None  # the single pending payment, if any
-    completed_actions: dict[str, Any] = field(default_factory=dict)  # actionId -> payment result (idempotent /confirm)
+    pending: PendingPayment | None = None  # at most one pending payment per session
+    completed_actions: dict[str, Any] = field(default_factory=dict)  # actionId -> ConfirmResponse (repeat /confirm = same answer)
     updated_at: datetime = field(default_factory=utcnow)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False, compare=False)
 

@@ -51,7 +51,7 @@ def test_other_students_data_comes_back_as_a_tool_error(client, llm):
     ("name", "args", "code"),
     [("query_tuition", {"term": "fall"}, "INVALID_ARGUMENT"), ("query_tuition", {"studentNo": "../admin"}, "INVALID_ARGUMENT"),
      ("search_tuition_policies", {"query": "  "}, "INVALID_ARGUMENT"), ("drop_table", {}, "UNKNOWN_TOOL"),
-     ("pay_tuition", {"term": "2026-FALL", "amount": "10"}, "NOT_AVAILABLE")],
+     ("pay_tuition", {"term": "2026-FALL", "amount": "-5"}, "INVALID_ARGUMENT"), ("pay_tuition", {"term": "fall", "amount": "5"}, "INVALID_ARGUMENT")],
 )
 def test_bad_tool_calls_never_reach_a_service(client, llm, tuition, policies, name, args, code):
     llm.push(call(name, **args), say("sorry"))

@@ -66,4 +66,5 @@ class ConfirmResponse(CamelModel):
     session_id: str
     reply: str
     trace: list[TraceStep]
-    payment: PaymentResult | None = None
+    payment: PaymentResult | None = Field(None, description="Set when the payment went through (status SUCCESS or ALREADY_PROCESSED)")
+    pending_action: PendingAction | None = Field(None, description="Still pending when the result is unknown (service unreachable); confirm again")

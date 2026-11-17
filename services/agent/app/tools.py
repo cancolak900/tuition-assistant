@@ -7,11 +7,18 @@ import inspect
 import logging
 import re
 import time
+import uuid
 from dataclasses import dataclass
+from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from app.clients import POLICY_TOOL, PolicyClient, ToolOutcome, TuitionClient
 from app.llm import ToolCall, ToolSpec
+from app.schemas import PendingAction
+from app.sessions import PendingPayment, Session, utcnow
+
+CENT = Decimal("0.01")
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +85,25 @@ class ToolContext:
     student_no: str
     token: str
     request_id: str | None = None
+    session: Session | None = None  # needed by pay_tuition to store the pending payment
+    pending_ttl: timedelta = timedelta(minutes=5)
+
+
+def money(value: Decimal) -> str:
+    return str(value.quantize(CENT))
+
+
+def parse_amount(value: Any) -> Decimal | None:
+    """'500', '500.5', 500, '1,000.00' -> Decimal; None if not a positive amount with at most 2 decimals."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        amount = Decimal(str(value).replace(",", "").strip())
+    except InvalidOperation:
+        return None
+    if not amount.is_finite() or amount <= 0 or amount != amount.quantize(CENT) or amount >= Decimal("1e10"):
+        return None
+    return amount.quantize(CENT)
 
 
 @dataclass
@@ -135,8 +161,41 @@ class ToolExecutor:
         if call.name == "query_tuition":
             return await self._query(args, ctx)
         if call.name == "pay_tuition":
-            return ToolOutcome.error("NOT_AVAILABLE", "Payments cannot be prepared yet.")
+            return await self._prepare_payment(args, ctx)
         return ToolOutcome.error("UNKNOWN_TOOL", f"There is no tool named {call.name!r}.")
+
+    async def _prepare_payment(self, args: dict[str, Any], ctx: ToolContext) -> ToolOutcome:
+        """FR-33: never pays. Checks the live balance and stores a pending payment that only /confirm can execute."""
+        term = str(args.get("term") or "").strip().upper()
+        if not TERM_RE.match(term):
+            return ToolOutcome.error("INVALID_ARGUMENT", "term must look like 2026-FALL or 2026-SPRING.")
+        amount = parse_amount(args.get("amount"))
+        if amount is None:
+            return ToolOutcome.error("INVALID_ARGUMENT", "amount must be a positive number with at most 2 decimals, like 500.00.")
+        if ctx.session is None:
+            return ToolOutcome.error("NOT_AVAILABLE", "Payments can only be prepared in a chat session.")
+        # Payment is always for the logged-in student: the LLM cannot choose another student here.
+        live = await self.tuition.query_tuition(ctx.student_no, term, ctx.token, ctx.request_id)
+        if not live.ok:
+            return live
+        balance, currency = Decimal(live.data["balance"]), live.data["currency"]
+        if balance <= 0:
+            return ToolOutcome.error("NOTHING_TO_PAY", f"There is no open balance for {term}.", balance=money(balance), currency=currency)
+        if amount > balance:
+            return ToolOutcome.error("AMOUNT_EXCEEDS_BALANCE", "The amount is higher than the remaining balance; overpayment is not allowed.",
+                                     balance=money(balance), currency=currency)
+        action = PendingAction(
+            action_id=uuid.uuid4().hex, student_no=ctx.student_no, term=term, amount=money(amount), currency=currency,
+            balance=money(balance), balance_after=money(balance - amount), expires_at=utcnow() + ctx.pending_ttl,
+        )
+        # A new request replaces an older pending payment; the old actionId stops working.
+        ctx.session.pending = PendingPayment(action=action, transaction_id=f"AGT-{uuid.uuid4().hex}")
+        return ToolOutcome(True, {
+            "status": "AWAITING_USER_CONFIRMATION", "actionId": action.action_id, "term": term, "amount": action.amount,
+            "currency": currency, "balance": action.balance, "balanceAfter": action.balance_after,
+            "expiresInMinutes": int(ctx.pending_ttl.total_seconds() // 60),
+            "note": "Nothing has been paid yet. Ask the student to check the details and press Confirm or Cancel on the payment card.",
+        })
 
     async def _search(self, args: dict[str, Any]) -> ToolOutcome:
         query = str(args.get("query") or "").strip()

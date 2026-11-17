@@ -19,7 +19,7 @@ class _Error(BaseModel):
 
 
 ERRORS = {401: {"model": _Error, "description": "Missing or invalid token"}, 403: {"model": _Error, "description": "Not a student"},
-          404: {"model": _Error, "description": "Session or action not found"}, 422: {"model": _Error, "description": "Validation error"},
+          404: {"model": _Error, "description": "Session or action not found"}, 410: {"model": _Error, "description": "Payment confirmation expired"}, 422: {"model": _Error, "description": "Validation error"},
           503: {"model": _Error, "description": "Language model unavailable or busy"},
           504: {"model": _Error, "description": "The answer took too long"}}
 
@@ -38,8 +38,8 @@ async def chat(body: ChatRequest, user: StudentDep, agent: AgentDep, request: Re
 
 
 @router.post("/confirm", response_model=ConfirmResponse, response_model_by_alias=True, responses=ERRORS, summary="Confirm or cancel a pending payment")
-async def confirm(body: ConfirmRequest, user: StudentDep, agent: AgentDep) -> ConfirmResponse:
-    return await agent.confirm(user, body.session_id, body.action_id, body.decision)
+async def confirm(body: ConfirmRequest, user: StudentDep, agent: AgentDep, request: Request) -> ConfirmResponse:
+    return await agent.confirm(user, body.session_id, body.action_id, body.decision, getattr(request.state, "request_id", None))
 
 
 @router.get("/health", summary="Liveness probe")
