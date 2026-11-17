@@ -44,6 +44,11 @@ def build_server(fail: bool = False) -> FastMCP:
             raise ValueError("index not loaded")
         return Result(document="t.md", documentId="T-1", matches=[Match(section="2.1", heading="Fall", text=f"hit for {query} x{top_k}", score=1.0)])
 
+    @server.tool(structured_output=False)
+    def plain_text(query: str, top_k: int = 3) -> str:
+        """Returns text instead of structured content (like an older server)."""
+        return '{"matches": []}' if query == "json" else "not json"
+
     return server
 
 
@@ -62,8 +67,17 @@ async def test_call_tool_returns_structured_result(mcp_client):
     assert out.data["matches"][0] == {"section": "2.1", "heading": "Fall", "text": "hit for deadline x2", "score": 1.0}
 
 
+@pytest.mark.parametrize(("kind", "ok"), [("json", True), ("text", False)])
+async def test_text_only_results_are_parsed_or_rejected(mcp_client, monkeypatch, kind, ok):
+    import app.clients as clients
+
+    monkeypatch.setattr(clients, "POLICY_TOOL", "plain_text")
+    out = await mcp_client.search(kind)
+    assert out.ok is ok and (out.data == {"matches": []} if ok else out.data["code"] == "POLICY_SEARCH_FAILED")
+
+
 async def test_list_tools_returns_the_published_schema(mcp_client):
-    [tool] = await mcp_client.list_tools()
+    tool = next(t for t in await mcp_client.list_tools() if t.name == "search_tuition_policies")
     assert tool.name == "search_tuition_policies"
     assert tool.input_schema["required"] == ["query"] and "top_k" in tool.input_schema["properties"]
     assert tool.description.startswith("Search the test policy document.")
