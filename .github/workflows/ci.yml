@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: test (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [tuition-api, mcp-server, agent]
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check whether the service has code yet
+        id: check
+        run: |
+          if [ -f requirements.txt ] && [ -d tests ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No requirements.txt/tests yet for ${{ matrix.service }}; skipping."
+          fi
+
+      - name: Install dependencies
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      # testcontainers uses the Docker daemon that ubuntu-latest runners provide.
+      - name: Run tests
+        if: steps.check.outputs.ready == 'true'
+        run: pytest -v
