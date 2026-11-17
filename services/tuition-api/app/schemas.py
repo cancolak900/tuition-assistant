@@ -102,3 +102,59 @@ class TuitionSummary(CamelModel):
     balance: Money
     currency: str = Field(examples=["USD"])
     terms: list[TermSummary] = Field(description="Per-term breakdown (one item when a term is requested)")
+
+
+# ---------- admin ----------
+
+CURRENCY_REGEX = r"^[A-Z]{3}$"
+
+
+class AddTuitionRequest(CamelModel):
+    student_no: str = Field(pattern=STUDENT_NO_REGEX, examples=["S1004"])
+    term: str = Field(pattern=TERM_REGEX, examples=["2027-SPRING"])
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2, examples=["3000.00"])
+    currency: str = Field("USD", pattern=CURRENCY_REGEX, description="ISO-4217 code", examples=["USD"])
+
+
+class AddTuitionResponse(CamelModel):
+    status: str = Field(description="CREATED or UPDATED", examples=["CREATED"])
+    student_no: str
+    term: str
+    amount: Money
+    currency: str
+    previous_amount: Money | None = Field(None, description="Only for UPDATED")
+
+
+class BatchRowError(CamelModel):
+    row: int = Field(description="Line number in the CSV file (the header is line 1)")
+    student_no: str | None
+    code: str
+    reason: str
+
+
+class BatchResponse(CamelModel):
+    status: str = Field(description="COMPLETED (no failures), PARTIAL or FAILED (no successes)")
+    total_rows: int
+    success_count: int
+    failure_count: int
+    created_count: int
+    updated_count: int
+    errors: list[BatchRowError]
+
+
+class UnpaidItem(CamelModel):
+    student_no: str
+    full_name: str
+    tuition_total: Money
+    paid: Money
+    balance: Money
+    currency: str
+
+
+class UnpaidPage(CamelModel):
+    term: str
+    items: list[UnpaidItem]
+    page: int
+    page_size: int
+    total_items: int
+    total_pages: int
