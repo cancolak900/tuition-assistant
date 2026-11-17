@@ -340,16 +340,18 @@ Pages: **Login**, **Chat** (messages, a collapsible **Tool Trace** panel per tur
 
 | Resource | Spec | Notes |
 |---|---|---|
-| EC2 | `t3.small`, Amazon Linux 2023, 20 GB gp3, Elastic IP | Docker + compose plugin. Security group: 80 from anywhere, 22 from the operator's IP only. |
-| RDS | PostgreSQL 16, `db.t4g.micro`, 20 GB, single-AZ, **not public** | SG allows 5432 only from the EC2 SG. |
+| EC2 | `t3.small`, Ubuntu Server 24.04 LTS, 20 GB gp3, 2 GB swap, Elastic IP | Docker Engine + compose plugin from Docker's apt repository. Security group: 80 from anywhere, 22 from the operator's IP only. |
+| RDS | PostgreSQL 16, `db.t4g.micro`, 20 GB gp3, single-AZ, **not public**, initial database `tuition` | SG allows 5432 only from the EC2 instance. TLS is required (`sslmode=require`). |
 | Secrets | `.env` on EC2 (chmod 600) | `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`. Never committed. |
 | Budget | AWS Budgets alarm at $10 | Stop/terminate resources when the demo period ends. |
 
-Deploy: `git clone` → `cp .env.example .env` (fill values) → `docker compose -f docker-compose.prod.yml up -d --build` → `alembic upgrade head` + `python -m seed.seed` (one-off container) → smoke test through `http://<EIP>/api/v1/...`.
+Deploy (`scripts/deploy.sh`, step by step in [04_Deployment_Guide.md](04_Deployment_Guide.md)): `git clone` → `deploy.sh install` (Docker, swap) → `deploy.sh env` (writes `.env` with mode 600: percent-encoded RDS password, `sslmode=require`, a fresh `JWT_SECRET`) → `deploy.sh up --seed` (build, `alembic upgrade head`, seed, `up -d`, wait for `/api/v1/health`) → `scripts/smoke.sh http://<EIP>` and `scripts/scenarios.py --base-url http://<EIP>` from outside.
+
+`docker-compose.prod.yml` is standalone: it has no postgres service, Kong on port 80 is the only published port, every service has `restart: unless-stopped`, and container logs are capped at 3 × 10 MB. `deploy.sh reset-data` restores the demo data (`alembic downgrade base` → `upgrade head` → seed), because RDS has no volume to delete.
 
 **Fallback** (if no AWS account): run the same `docker-compose.yml` locally. The README documents this as a deviation.
 
-**Estimated cost**: EC2 t3.small ≈ $0.021/h, RDS t4g.micro ≈ $0.016/h and a public IPv4 ≈ $0.005/h, so about **$1/day**, covered by AWS free-plan credits. Gemini: $0 on the free tier.
+**Estimated cost** (`eu-central-1`): EC2 t3.small ≈ $0.024/h, RDS t4g.micro ≈ $0.018/h, a public IPv4 $0.005/h and 40 GB gp3, so about **$1.2/day**, covered by AWS free-plan credits. Gemini: $0 on the free tier.
 
 ---
 
