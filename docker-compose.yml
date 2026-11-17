@@ -20,5 +20,18 @@ services:
       timeout: 3s
       retries: 10
 
+  tuition-api:
+    build: ./services/tuition-api
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_MIN: ${JWT_EXPIRES_MIN:-60}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Published only for local debugging until the gateway is added (step 28); then only Kong is public.
+    ports:
+      - "127.0.0.1:8000:8000"
+
 volumes:
   pgdata:
