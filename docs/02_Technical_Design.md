@@ -25,7 +25,7 @@ This document defines **how** the system is built: the stack, service boundaries
 | MCP | Official **MCP Python SDK** (`mcp`, `FastMCP`) | Streamable HTTP transport (stdio also available for the Inspector). |
 | Search index | BM25 (`rank-bm25`) over section chunks | Full-text search is sufficient for a single policy document. Built once at build time. |
 | LLM | **Google Gemini Flash** via the `google-genai` SDK | Free tier. Model set by `GEMINI_MODEL`, with `GEMINI_FALLBACK_MODEL` (comma-separated, Flash-Lite models by default) tried in order when the main model is overloaded or out of quota; every model has its own free-tier quota. |
-| Web UI | React 18 + Vite + TypeScript + Tailwind CSS | Designed in Google Stitch → Figma. |
+| Web UI | React 19 + Vite 8 + TypeScript + Tailwind CSS 4 | Designed in Google Stitch → Figma; fonts self-hosted (Outfit, JetBrains Mono). |
 | Tests | pytest, httpx `TestClient`, `testcontainers[postgres]` | No cloud, no live LLM. |
 | Packaging | Docker + Docker Compose | Same compose setup locally and on AWS. |
 | CI | GitHub Actions | Runs the tests on every push. The run is test evidence. |
@@ -326,6 +326,8 @@ Returns `{document, documentId, matches:[{section, heading, text, score}]}`. Mat
 ## 10. Web UI
 
 Pages: **Login**, **Chat** (messages, a collapsible **Tool Trace** panel per turn, a **Confirm Payment** card), and **Admin** (add tuition form, CSV upload with result table, unpaid list with paging). The JWT is kept in memory/sessionStorage. Design flow: screens are drafted in Google Stitch, refined in Figma, then implemented in React + Tailwind using the Figma colors and spacing.
+
+**Theme from Figma** (`web/src/theme/`): the Figma "Tokens" collection (19 colors, 4 radii, 6 spacing steps) and its 14 text styles are exported to `figma-tokens.json` and declared in `theme.css` as Tailwind 4 `@theme` variables under the **same names Figma shows as WEB code syntax** (e.g. `var(--color-bg-page)`, `var(--radius-lg)`), so `bg-bg-page`, `rounded-lg`, `p-lg` in code mean exactly the Figma values. Each text style is one utility (`type-body`, `type-heading`, `type-mono` …). A unit test fails if `theme.css` and the exported tokens differ. The Figma components (Button, Text Field, Chip, Avatar, Send Button, App Header, Table Row) have React counterparts in `web/src/components/ui/`; `/styleguide` renders all of them for a side-by-side check with Figma.
 
 ---
 

@@ -1,0 +1,85 @@
+/*
+ * Design tokens from the Figma design system (src/theme/figma-tokens.json is the exported snapshot).
+ * Variable names are the ones Figma shows as "WEB code syntax", e.g. var(--color-bg-page),
+ * so a value seen in Figma can be found here by the same name. A unit test keeps the two in sync.
+ *
+ * Tailwind usage: bg-bg-page, text-text-on-dark, border-border-dark, rounded-lg, p-lg, gap-sm, type-body ...
+ */
+@import "tailwindcss";
+
+@theme {
+  /* colors */
+  --color-bg-page: #0E0E0E;
+  --color-bg-header: #131313;
+  --color-bg-surface: #171717;
+  --color-bg-elevated: #1F1F1F;
+  --color-bg-card: #FFFFFF;
+  --color-accent-primary: #FFC800;
+  --color-accent-success: #5A9E2F;
+  --color-accent-danger: #C8102E;
+  --color-accent-info: #1E6FBF;
+  --color-text-on-dark: #FFFFFF;
+  --color-text-on-dark-muted: #A3A3A3;
+  --color-text-placeholder: #737373;
+  --color-text-on-light: #111111;
+  --color-text-on-light-muted: #888888;
+  --color-text-on-accent: #111111;
+  --color-border-dark: #262626;
+  --color-border-dark-strong: #404040;
+  --color-border-light: #E5E5E5;
+  --color-border-divider: #F3F4F6;
+
+  /* corner radii */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* spacing scale */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+
+  /* fonts (self-hosted through @fontsource, no external requests) */
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* layout widths used by the screens */
+  --container-chat: 900px;
+  --container-form: 360px;
+  --container-card: 440px;
+}
+
+/* Figma text styles -> one utility each (name/size/line-height/weight as in Figma). */
+@utility type-display { font-family: var(--font-sans); font-size: 28px; line-height: 36px; font-weight: 700; }
+@utility type-heading { font-family: var(--font-sans); font-size: 20px; line-height: 28px; font-weight: 600; }
+@utility type-amount { font-family: var(--font-sans); font-size: 20px; line-height: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@utility type-wordmark { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 700; }
+@utility type-body { font-family: var(--font-sans); font-size: 15px; line-height: 24px; font-weight: 400; }
+@utility type-body-sm { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 400; }
+@utility type-label-strong { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 600; }
+@utility type-label { font-family: var(--font-sans); font-size: 13px; line-height: 20px; font-weight: 400; }
+@utility type-label-bold { font-family: var(--font-sans); font-size: 13px; line-height: 20px; font-weight: 700; }
+@utility type-button { font-family: var(--font-sans); font-size: 13px; line-height: 20px; font-weight: 500; }
+@utility type-caption { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; }
+@utility type-micro { font-family: var(--font-sans); font-size: 11px; line-height: 16px; font-weight: 400; }
+@utility type-mono { font-family: var(--font-mono); font-size: 12px; line-height: 16px; font-weight: 400; }
+@utility type-mono-bold { font-family: var(--font-mono); font-size: 12px; line-height: 16px; font-weight: 700; }
+/* Table header cells: Outfit 12/16, 6% letter spacing, upper case. */
+@utility type-table-head { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; }
+
+@layer base {
+  html { color-scheme: dark; }
+  body {
+    margin: 0;
+    background: var(--color-bg-page);
+    color: var(--color-text-on-dark);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 2px solid var(--color-accent-primary); outline-offset: 2px; }
+  ::selection { background: color-mix(in srgb, var(--color-accent-primary) 35%, transparent); }
+}
