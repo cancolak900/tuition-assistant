@@ -1,0 +1,173 @@
+# MCP retrieval tests - search_tuition_policies
+# Server: http://localhost:8100/mcp (docker compose service mcp-server)
+# Client: MCP Inspector 2.13.0 CLI (npx @modelcontextprotocol/inspector@2.13.0 --cli ...)
+# Date: 2026-11-17 21:19
+
+## tools/list
+{
+  "tools": [
+    {
+      "name": "search_tuition_policies",
+      "description": "Search the University Tuition Policies (UNI-TUITION-2026-01) for deadlines, installments,\n    late fees, scholarships, refunds and banking/payment rules.\n\n    Returns the best matching excerpts with their section number (e.g. \"3.2\") and heading, so the\n    answer can cite \"§3.2\". Not a source of student balances or payment status.\n\n    Args:\n        query: the policy question or keywords, e.g. \"installment eligibility\".\n        top_k: how many sections to return (1-10, default 3).\n    ",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "top_k": {
+            "default": 3,
+            "title": "Top K",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_tuition_policiesArguments"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "document": {
+            "description": "Source file name",
+            "title": "Document",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Policy document id, e.g. UNI-TUITION-2026-01",
+            "title": "Documentid",
+            "type": "string"
+          },
+          "matches": {
+            "description": "Best sections first; empty when nothing relevant was found",
+            "items": {
+              "$ref": "#/$defs/PolicyMatch"
+            },
+            "title": "Matches",
+            "type": "array"
+          }
+        },
+        "required": [
+          "document",
+          "documentId",
+          "matches"
+        ],
+        "$defs": {
+          "PolicyMatch": {
+            "properties": {
+              "section": {
+                "description": "Section number to cite, e.g. \"3.2\"",
+                "title": "Section",
+                "type": "string"
+              },
+              "heading": {
+                "description": "Section heading",
+                "title": "Heading",
+                "type": "string"
+              },
+              "text": {
+                "description": "Full text of the section",
+                "title": "Text",
+                "type": "string"
+              },
+              "score": {
+                "description": "BM25 relevance score (higher is better, always > 0)",
+                "title": "Score",
+                "type": "number"
+              }
+            },
+            "required": [
+              "section",
+              "heading",
+              "text",
+              "score"
+            ],
+            "title": "PolicyMatch",
+            "type": "object"
+          }
+        },
+        "title": "PolicySearchResult"
+      }
+    }
+  ]
+}
+
+## tools/call search_tuition_policies query="payment deadline fall"
+{
+  "document": "University_Tuition_Policies.md",
+  "documentId": "UNI-TUITION-2026-01",
+  "matches": [
+    {
+      "section": "2.1",
+      "heading": "Fall term",
+      "text": "The payment deadline for the Fall 2026 term is September 30, 2026. A student should settle the outstanding balance or have an approved installment arrangement by that date.",
+      "score": 6.049
+    },
+    {
+      "section": "8.1",
+      "heading": "When is the Fall tuition deadline?",
+      "text": "September 30, 2026. See Section 2.1.",
+      "score": 5.1761
+    },
+    {
+      "section": "2.2",
+      "heading": "Spring term",
+      "text": "The payment deadline for the Spring 2027 term is February 15, 2027. Deadlines apply in the university's local time zone.",
+      "score": 3.7292
+    }
+  ]
+}
+
+## tools/call search_tuition_policies query="installments how many"
+{
+  "document": "University_Tuition_Policies.md",
+  "documentId": "UNI-TUITION-2026-01",
+  "matches": [
+    {
+      "section": "3.2",
+      "heading": "Number and size of installments",
+      "text": "An approved balance may be divided into up to three installments. Installments should be equal where possible; any rounding difference is added to the final installment. For example, a $3,000 balance can be divided into three payments of $1,000.",
+      "score": 1.785
+    },
+    {
+      "section": "3.3",
+      "heading": "Installment schedule",
+      "text": "For Fall 2026, approved installment due dates are September 30, October 31, and November 30, 2026. For Spring 2027, approved installment due dates are February 15, March 15, and April 15, 2027.",
+      "score": 1.6925
+    },
+    {
+      "section": "3.4",
+      "heading": "Partial payments versus installment approval",
+      "text": "The payment API can record a partial payment and retain the remaining balance. A partial payment is not, by itself, approval of an installment plan. The AI assistant must not promise approval based solely on the policy document or a balance lookup.",
+      "score": 1.5595
+    }
+  ]
+}
+
+## tools/call search_tuition_policies query="late fee overdue"
+{
+  "document": "University_Tuition_Policies.md",
+  "documentId": "UNI-TUITION-2026-01",
+  "matches": [
+    {
+      "section": "4.1",
+      "heading": "Late fee rule",
+      "text": "A 2% one-time late fee may be assessed on an overdue amount after the applicable due date, unless an approved exception applies. This document describes the rule but does not calculate or post fees automatically.",
+      "score": 9.0264
+    },
+    {
+      "section": "4.2",
+      "heading": "Example",
+      "text": "If $1,000 is overdue and no exception applies, the illustrative late fee is $20. Whether a fee has actually been posted must be checked in the tuition system.",
+      "score": 8.8248
+    },
+    {
+      "section": "4.3",
+      "heading": "Exceptions",
+      "text": "Students with a documented university-approved deferral may be exempt. Approval status is not available from this document.",
+      "score": 4.7939
+    }
+  ]
+}
