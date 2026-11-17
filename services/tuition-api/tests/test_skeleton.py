@@ -45,3 +45,21 @@ def test_routes_are_versioned_and_swagger_is_served(make_client):
     assert c.get("/api/v1/docs").status_code == 200
     spec = c.get("/api/v1/openapi.json").json()
     assert all(path.startswith("/api/v1/") for path in spec["paths"])
+
+
+def test_unexpected_error_returns_500_in_error_format(monkeypatch):
+    """A crash inside a route never leaks a stack trace; the body uses the common error format."""
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    app = create_app()
+
+    @app.get("/api/v1/boom")
+    def boom():
+        raise RuntimeError("secret internal detail")
+
+    res = TestClient(app, raise_server_exceptions=False).get("/api/v1/boom")
+    assert res.status_code == 500
+    assert res.json() == {"error": {"code": "INTERNAL_ERROR", "message": "An unexpected error occurred.", "details": None}}
+    assert "secret" not in res.text

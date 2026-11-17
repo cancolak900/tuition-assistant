@@ -231,3 +231,29 @@ def test_unpaid_invalid_paging_422(api, admin, params):
 def test_unpaid_non_admin_403(api, login, username, password):
     """T-29: non-admin -> 403."""
     assert api.get(UNPAID, params={"term": "2026-FALL"}, headers=login(username, password)).status_code == 403
+
+
+def test_batch_skips_blank_lines_and_reports_wrong_column_count(api, admin, new_student):
+    a = new_student()
+    body = api.post(BATCH, files=_csv([f"{a},{TERM},10.00,USD", "", f"{a},{TERM},10.00", " , , , "]), headers=admin).json()
+    assert (body["totalRows"], body["successCount"], body["failureCount"]) == (2, 1, 1)
+    assert (body["errors"][0]["row"], body["errors"][0]["code"]) == (4, "INVALID_COLUMNS")
+
+
+def test_batch_rejects_non_utf8_text(api, admin):
+    files = {"file": ("batch.csv", "studentNo,term,amount,currency\nS1001,2033-FALL,1.00,USD\nÉ\n".encode("latin-1"), "text/csv")}
+    res = api.post(BATCH, files=files, headers=admin)
+    assert (res.status_code, res.json()["error"]["code"]) == (400, "INVALID_FILE")
+
+
+def test_batch_size_and_row_limits(api, admin, monkeypatch):
+    from app.services import admin as admin_service
+
+    monkeypatch.setattr(admin_service, "MAX_CSV_BYTES", 40)
+    res = api.post(BATCH, files=_csv(["S9999,2033-FALL,1.00,USD"]), headers=admin)
+    assert (res.status_code, res.json()["error"]["code"]) == (400, "FILE_TOO_LARGE")
+
+    monkeypatch.setattr(admin_service, "MAX_CSV_BYTES", 1_000_000)
+    monkeypatch.setattr(admin_service, "MAX_CSV_ROWS", 2)
+    res = api.post(BATCH, files=_csv(["S9999,2033-FALL,1.00,USD"] * 3), headers=admin)
+    assert (res.status_code, res.json()["error"]["code"]) == (400, "TOO_MANY_ROWS")

@@ -141,3 +141,10 @@ def test_admin_cannot_use_banking():
     with pytest.raises(AppError) as exc:
         ensure_student_access(ADMIN, "S1001")
     assert (exc.value.status_code, exc.value.code) == (403, "FORBIDDEN_ROLE")
+
+
+def test_malformed_password_hash_never_matches():
+    from app.security import verify_password
+
+    assert verify_password("anything", "not-a-bcrypt-hash") is False
+    assert verify_password("anything", None) is False

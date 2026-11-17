@@ -130,3 +130,15 @@ def test_balance_uses_exact_decimals(api, seeded_url):
 
     body = api.get(f"{MOBILE}/T3000", params={"term": "2030-FALL"}).json()
     assert (body["tuitionTotal"], body["totalPaid"], body["balance"]) == ("1.00", "0.30", "0.70")
+
+
+def test_overall_query_never_adds_different_currencies(api, login, seeded_url):
+    """Mixed currencies: the overall total is refused (409), per-term queries still work."""
+    engine = create_engine(seeded_url)
+    with engine.begin() as c:
+        c.execute(text("INSERT INTO students (student_no, full_name) VALUES ('T3400', 'Currency Test') ON CONFLICT DO NOTHING"))
+        c.execute(text("INSERT INTO tuitions (student_no, term, amount, currency) VALUES ('T3400', '2034-FALL', 100, 'USD'), ('T3400', '2035-SPRING', 100, 'EUR') ON CONFLICT DO NOTHING"))
+    engine.dispose()
+    res = api.get(f"{MOBILE}/T3400")
+    assert (res.status_code, res.json()["error"]["code"]) == (409, "MIXED_CURRENCIES")
+    assert api.get(f"{MOBILE}/T3400", params={"term": "2035-SPRING"}).json()["currency"] == "EUR"

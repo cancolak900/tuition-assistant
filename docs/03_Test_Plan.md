@@ -15,11 +15,11 @@
 | Unit / API tests | pytest + FastAPI `TestClient` + PostgreSQL through `testcontainers` | ✅ | `services/*/tests` |
 | MCP tests | pytest; the chunker, index and tool function are called directly | ✅ | `services/mcp-server/tests` |
 | Agent tests | pytest + `FakeLLM` (scripted function calls) + mocked REST/MCP clients | ✅ | `services/agent/tests` |
-| CI | GitHub Actions, Postgres service container | ✅ | `.github/workflows/ci.yml` |
+| CI | GitHub Actions; PostgreSQL 16 started by `testcontainers` on the runner; coverage report in the log | ✅ | `.github/workflows/ci.yml` |
 | Gateway / E2E smoke | `scripts/smoke.sh` (curl) against the local compose stack and the AWS deployment | needs a running stack | evidence → `docs/evidence/` |
 | Manual demo | Web UI scenarios A1–A6 | needs the Gemini key | screenshots and video |
 
-How to run the tests (goes into the README): `pip install -r requirements-dev.txt && pytest -v`. Docker is required for testcontainers. Alternatively, set `TEST_DATABASE_URL` to an existing Postgres.
+How to run the tests (goes into the README): `pip install -r requirements.txt -r requirements-dev.txt && pytest -v` (add `--cov` for a coverage report). A traceability test fails if a T-xx case below has no test that names it in its docstring. Docker is required for testcontainers. Alternatively, set `TEST_DATABASE_URL` to an existing Postgres.
 
 ## 2. REST API test cases (each operation has ≥1 success and ≥1 failure/edge test)
 
