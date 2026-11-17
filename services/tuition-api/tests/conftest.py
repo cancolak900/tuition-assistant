@@ -52,6 +52,21 @@ def migrated_url(postgres_url: str) -> str:
     return postgres_url
 
 
+@pytest.fixture(scope="session")
+def seeded_url(migrated_url: str) -> str:
+    """The migrated test database loaded with the demo seed data."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from seed.seed import seed
+
+    engine = create_engine(migrated_url)
+    with Session(engine) as session:
+        seed(session)
+    engine.dispose()
+    return migrated_url
+
+
 @pytest.fixture
 def make_client(monkeypatch: pytest.MonkeyPatch):
     """Build a TestClient whose app points at the given database URL."""

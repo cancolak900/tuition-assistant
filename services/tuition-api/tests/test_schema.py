@@ -132,9 +132,26 @@ def test_amounts_round_trip_as_exact_decimals(conn):
     assert conn.execute(text("SELECT amount FROM tuitions WHERE id = :i"), {"i": tid}).scalar_one() == Decimal("1234.56")
 
 
-def test_downgrade_and_upgrade_round_trip(migrated_url, engine):
-    cfg = alembic_config(migrated_url)
-    command.downgrade(cfg, "base")
-    assert set(inspect(engine).get_table_names()) <= {"alembic_version"}
-    command.upgrade(cfg, "head")
-    assert {"students", "users", "tuitions", "payments"} <= set(inspect(engine).get_table_names())
+def test_downgrade_and_upgrade_round_trip(postgres_url):
+    """Runs on its own scratch database so the shared (seeded) test database is never dropped."""
+    from sqlalchemy.engine import make_url
+
+    admin = create_engine(postgres_url, isolation_level="AUTOCOMMIT")
+    with admin.connect() as c:
+        c.execute(text("DROP DATABASE IF EXISTS migration_roundtrip"))
+        c.execute(text("CREATE DATABASE migration_roundtrip"))
+    scratch_url = make_url(postgres_url).set(database="migration_roundtrip").render_as_string(hide_password=False)
+    scratch = create_engine(scratch_url)
+    try:
+        cfg = alembic_config(scratch_url)
+        command.upgrade(cfg, "head")
+        assert {"students", "users", "tuitions", "payments"} <= set(inspect(scratch).get_table_names())
+        command.downgrade(cfg, "base")
+        assert set(inspect(scratch).get_table_names()) <= {"alembic_version"}
+        command.upgrade(cfg, "head")
+        assert {"students", "users", "tuitions", "payments"} <= set(inspect(scratch).get_table_names())
+    finally:
+        scratch.dispose()
+        with admin.connect() as c:
+            c.execute(text("DROP DATABASE IF EXISTS migration_roundtrip"))
+        admin.dispose()
