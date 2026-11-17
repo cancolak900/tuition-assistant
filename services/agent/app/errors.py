@@ -7,7 +7,7 @@ Every non-2xx response from this service has the body:
 import logging
 from typing import Any
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -58,7 +58,7 @@ async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResp
         {"field": ".".join(str(p) for p in err.get("loc", ()) if p != "body"), "message": err.get("msg"), "type": err.get("type")}
         for err in exc.errors()
     ]
-    return _response(status.HTTP_422_UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", "Request validation failed.", details)
+    return _response(422, "VALIDATION_ERROR", "Request validation failed.", details)
 
 
 async def _http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
@@ -69,7 +69,7 @@ async def _http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
 
 async def _unhandled_error(_: Request, exc: Exception) -> JSONResponse:
     logger.exception("Unhandled error", exc_info=exc)
-    return _response(status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "An unexpected error occurred.")
+    return _response(500, "INTERNAL_ERROR", "An unexpected error occurred.")
 
 
 def register_error_handlers(app: FastAPI) -> None:

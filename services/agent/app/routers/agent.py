@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.agent import Agent
@@ -19,7 +19,9 @@ class _Error(BaseModel):
 
 
 ERRORS = {401: {"model": _Error, "description": "Missing or invalid token"}, 403: {"model": _Error, "description": "Not a student"},
-          404: {"model": _Error, "description": "Session or action not found"}, 422: {"model": _Error, "description": "Validation error"}}
+          404: {"model": _Error, "description": "Session or action not found"}, 422: {"model": _Error, "description": "Validation error"},
+          503: {"model": _Error, "description": "Language model unavailable or busy"},
+          504: {"model": _Error, "description": "The answer took too long"}}
 
 
 @lru_cache
@@ -31,8 +33,8 @@ AgentDep = Annotated[Agent, Depends(get_agent)]
 
 
 @router.post("/chat", response_model=ChatResponse, response_model_by_alias=True, responses=ERRORS, summary="Send a message to the assistant")
-async def chat(body: ChatRequest, user: StudentDep, agent: AgentDep) -> ChatResponse:
-    return await agent.chat(user, body.session_id, body.message)
+async def chat(body: ChatRequest, user: StudentDep, agent: AgentDep, request: Request) -> ChatResponse:
+    return await agent.chat(user, body.session_id, body.message, getattr(request.state, "request_id", None))
 
 
 @router.post("/confirm", response_model=ConfirmResponse, response_model_by_alias=True, responses=ERRORS, summary="Confirm or cancel a pending payment")

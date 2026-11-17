@@ -24,7 +24,7 @@ This document defines **how** the system is built: the stack, service boundaries
 | API Gateway | **Kong Gateway OSS 3.x**, DB-less (declarative `kong.yml`) | See ADR-01. |
 | MCP | Official **MCP Python SDK** (`mcp`, `FastMCP`) | Streamable HTTP transport (stdio also available for the Inspector). |
 | Search index | BM25 (`rank-bm25`) over section chunks | Full-text search is sufficient for a single policy document. Built once at build time. |
-| LLM | **Google Gemini Flash** via the `google-genai` SDK | Free tier. Model set by `GEMINI_MODEL`. |
+| LLM | **Google Gemini Flash** via the `google-genai` SDK | Free tier. Model set by `GEMINI_MODEL`, with `GEMINI_FALLBACK_MODEL` (Flash-Lite) when the main model is overloaded or out of quota. |
 | Web UI | React 18 + Vite + TypeScript + Tailwind CSS | Designed in Google Stitch → Figma. |
 | Tests | pytest, httpx `TestClient`, `testcontainers[postgres]` | No cloud, no live LLM. |
 | Packaging | Docker + Docker Compose | Same compose setup locally and on AWS. |
@@ -300,7 +300,12 @@ Returns `{document, documentId, matches:[{section, heading, text, score}]}`. Mat
 | `query_tuition` | REST → Kong → `GET /banking/tuition/{studentNo}` | `term?`, `studentNo?` (defaults to the token's own) |
 | `pay_tuition` | **pending action only** | `term`, `amount` |
 
-**Loop** (`llm.py`): send the history and tools. While the response contains `functionCall`s (at most 5 rounds): execute each one, append a `functionResponse`, and record a trace entry `{step, tool, input, output(truncated), durationMs}`. Then return the final text. Automatic function calling in the SDK is **disabled**, so the agent controls every call.
+**Loop** (`agent.py`, `llm.py`): send the history and tools. While the response contains `functionCall`s (at most 5 rounds): execute each one, append a `functionResponse`, and record a trace entry `{step, tool, input, output(truncated), durationMs}`. Then return the final text. Automatic function calling in the SDK is **disabled**, so the agent controls every call.
+- Tool arguments from the LLM are validated before any call (`studentNo` letters/digits, `term` like `2026-FALL`, non-empty `query`, `top_k` clamped to 1..10). A bad call or a service error goes back to the LLM as `{"error":{code,message}}` and the trace step has `status:"error"`.
+- `query_tuition` calls Kong with the **user's own JWT** (and the request's `X-Request-ID`), so asking for another student returns the API's `403` and the model is told to refuse.
+- Only a finished turn is stored in the session; if the LLM fails, the history is unchanged.
+- **Resilience**: each Gemini call has a 25 s timeout; overload (500/503/504) is retried twice (1 s, 2 s); quota (429), overload after retries or a timeout switch to the fallback model. Turns replayed to a different model are rebuilt without the other model's thought signatures. The whole turn is limited to 80 s (Kong's read timeout is 90 s).
+- Errors: `503 LLM_NOT_CONFIGURED` (no API key), `503 LLM_BUSY` (every model overloaded or out of quota), `503 LLM_UNAVAILABLE` (other model error), `504 AGENT_TIMEOUT`.
 
 **Payment confirmation (FR-33)**: `pay_tuition` → the agent calls `query_tuition` for the current balance, generates `transactionId = uuid4`, stores `PendingAction{id, studentNo, term, amount, balance, transactionId, expiresAt(+5m)}` in the session, and returns it to the LLM as `{status:"AWAITING_USER_CONFIRMATION"}`. The UI shows a confirmation card. Only `POST /confirm` with `decision=confirm` calls `POST /banking/payments`, and it reuses the **same** `transactionId`, so a retry cannot double-charge. The rule is enforced in code, not only in the prompt.
 

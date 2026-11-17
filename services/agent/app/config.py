@@ -19,6 +19,9 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-flash-latest"
+    gemini_fallback_model: str = Field("gemini-flash-lite-latest", description="Used when the main model is overloaded; empty = none")
+    llm_timeout_seconds: float = Field(25, gt=0, description="Per LLM call")
+    turn_timeout_seconds: float = Field(80, gt=0, description="Whole chat turn; below Kong's 90 s read timeout")
     llm_temperature: float = Field(0.2, ge=0, le=1)
     max_tool_rounds: int = Field(5, ge=1, le=10)
     max_history_messages: int = Field(20, ge=2, le=100)

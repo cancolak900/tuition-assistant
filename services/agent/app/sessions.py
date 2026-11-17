@@ -4,6 +4,7 @@ A session belongs to the user who created it, keeps the recent message history f
 at most one pending payment action. Idle sessions expire.
 """
 
+import asyncio
 import threading
 import uuid
 from dataclasses import dataclass, field
@@ -26,6 +27,7 @@ class Session:
     pending: dict[str, Any] | None = None  # the single pending payment, if any
     completed_actions: dict[str, Any] = field(default_factory=dict)  # actionId -> payment result (idempotent /confirm)
     updated_at: datetime = field(default_factory=utcnow)
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False, compare=False)
 
 
 class SessionStore:

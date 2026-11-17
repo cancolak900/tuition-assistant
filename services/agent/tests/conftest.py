@@ -23,11 +23,42 @@ def auth(**kwargs) -> dict[str, str]:
 
 
 @pytest.fixture
-def client() -> TestClient:
+def llm():
+    from tests.fakes import ScriptedLLM
+
+    return ScriptedLLM()
+
+
+@pytest.fixture
+def policies():
+    from tests.fakes import FakePolicies
+
+    return FakePolicies()
+
+
+@pytest.fixture
+def tuition():
+    from tests.fakes import FakeTuition
+
+    return FakeTuition()
+
+
+@pytest.fixture
+def agent(llm, policies, tuition):
     from app import config
+    from app.agent import Agent
+    from app.tools import ToolExecutor
+
+    config.get_settings.cache_clear()
+    return Agent(config.get_settings(), llm=llm, executor=ToolExecutor(policies, tuition))
+
+
+@pytest.fixture
+def client(agent) -> TestClient:
     from app.main import create_app
     from app.routers import agent as agent_router
 
-    config.get_settings.cache_clear()
     agent_router.get_agent.cache_clear()
-    return TestClient(create_app())
+    app = create_app()
+    app.dependency_overrides[agent_router.get_agent] = lambda: agent
+    return TestClient(app)
