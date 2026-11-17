@@ -24,7 +24,7 @@ This document defines **how** the system is built: the stack, service boundaries
 | API Gateway | **Kong Gateway OSS 3.x**, DB-less (declarative `kong.yml`) | See ADR-01. |
 | MCP | Official **MCP Python SDK** (`mcp`, `FastMCP`) | Streamable HTTP transport (stdio also available for the Inspector). |
 | Search index | BM25 (`rank-bm25`) over section chunks | Full-text search is sufficient for a single policy document. Built once at build time. |
-| LLM | **Google Gemini Flash** via the `google-genai` SDK | Free tier. Model set by `GEMINI_MODEL`, with `GEMINI_FALLBACK_MODEL` (Flash-Lite) when the main model is overloaded or out of quota. |
+| LLM | **Google Gemini Flash** via the `google-genai` SDK | Free tier. Model set by `GEMINI_MODEL`, with `GEMINI_FALLBACK_MODEL` (comma-separated, Flash-Lite models by default) tried in order when the main model is overloaded or out of quota; every model has its own free-tier quota. |
 | Web UI | React 18 + Vite + TypeScript + Tailwind CSS | Designed in Google Stitch → Figma. |
 | Tests | pytest, httpx `TestClient`, `testcontainers[postgres]` | No cloud, no live LLM. |
 | Packaging | Docker + Docker Compose | Same compose setup locally and on AWS. |

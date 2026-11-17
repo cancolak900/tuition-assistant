@@ -73,7 +73,8 @@ class GeminiLLM:
         from google.genai import types
 
         self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=int(timeout_s * 1000)))
-        self.models = [model] + ([fallback_model] if fallback_model and fallback_model != model else [])
+        fallbacks = [m.strip() for m in fallback_model.split(",") if m.strip()]  # comma-separated; each model has its own free quota
+        self.models = list(dict.fromkeys([model, *fallbacks]))
         self._temperature = temperature
         self._skip_until: dict[str, float] = {}
 

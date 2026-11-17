@@ -1,4 +1,73 @@
-# Assistant scenarios A1-A6 (scripts/scenarios.py --yes --amount 50 --mobile-student S1023)
+# Assistant scenarios A1-A6 (scripts/scenarios.py --yes --amount 50 --mobile-student S1025)
 # Date: 2026-11-17. Local docker compose, real Gemini, through Kong. User: s1001.
 
+Logged in as s1001 at http://localhost
 
+=== A1: policy question (MCP only) ==================================
+
+  You: When is the Fall payment deadline?
+  Tool trace:
+    [1] mcp   search_tuition_policies  ok       26 ms  input={"query": "fall payment deadline due date"}
+  Assistant: The payment deadline for the Fall 2026 term was September 30, 2026 (§2.1). If you are using an approved installment plan, the subsequent installment due dates are October 31, 2026, and November 30, 2026 (§3.3).
+  PASS  policy searched over MCP
+  PASS  answer is September 30, 2026 with §2.1
+
+=== A2: balance question (REST only) ================================
+
+  You: What is my balance?
+  Tool trace:
+    [1] rest  query_tuition            ok       14 ms  input={}
+  Assistant: Your total remaining balance is 1200.00 USD. For the 2026-FALL term, your balance is 1200.00 USD (tuition total 3000.00 USD, total paid 1800.00 USD). For the 2027-SPRING term, your balance is 0.00 USD (tuition total 3000.00 USD, total paid 3000.00 USD).
+  PASS  live balance read over REST (through the gateway)
+  PASS  answer shows the live balance (1200.00)
+
+=== A3: installments (policy + balance) =============================
+
+  You: Can I pay my outstanding balance in installments?
+  Tool trace:
+    [1] mcp   search_tuition_policies  ok       25 ms  input={"query": "installment eligibility minimum balance request"}
+    [2] rest  query_tuition            ok       12 ms  input={}
+  Assistant: Yes, you are eligible to request an installment arrangement because your outstanding balance of 1200.00 USD meets the minimum requirement of at least $300 (§3.1). Please note that an arrangement is subject to university approval and is not guaranteed (§3.1).
+  PASS  both tools used (policy + live balance)
+  PASS  answer cites a §3.x installment section
+
+=== A4: payment with confirmation ===================================
+
+  You: Pay $50 of my Fall tuition.
+  Tool trace:
+    [1] rest  query_tuition            ok       13 ms  input={"studentNo": "S1001", "term": "2026-FALL", "reason": "balance check before payment"}
+    [2] local pay_tuition              ok       13 ms  input={"amount": "50.00", "term": "2026-FALL"}
+  Assistant: I have prepared a payment of 50.00 USD for the 2026-FALL term. Your current balance is 1200.00 USD, and it will be 1150.00 USD after this payment. Please review the details on the payment card and press Confirm or Cancel.
+  PASS  a confirmation card (pendingAction) is returned, nothing paid yet
+
+  Confirmation card: pay 50.00 USD for 2026-FALL (balance 1200.00 -> 1150.00), expires 2026-11-17T20:20:50.336868Z
+
+  /confirm decision=confirm -> HTTP 200
+    [1] rest  pay_tuition              ok       18 ms  input={"studentNo": "S1001", "term": "2026-FALL", "amount": "50.00", "transactionId": "AGT-0d110f6573284046a6b160cf9c8cc0fb"}
+  Assistant: Payment successful: 50.00 USD for 2026-FALL. Remaining balance: 1150.00 USD. Transaction id: AGT-0d110f6573284046a6b160cf9c8cc0fb.
+  PASS  payment recorded (status SUCCESS)
+  PASS  new balance shown (1150.00)
+  PASS  pressing Confirm again returns the same result (no second payment)
+
+=== A5: another student's data (must refuse) ========================
+
+  You: What is the balance of student S1002?
+  Tool trace:
+    [1] rest  query_tuition            error    10 ms  input={"studentNo": "S1002"}
+        -> {"error": {"code": "FORBIDDEN_OTHER_STUDENT", "message": "You can only access your own tuition records.", "httpStatus": 403}}
+  Assistant: I can only show your own tuition records.
+  PASS  no data of S1002 was returned
+  PASS  the request was refused (403 from the API) or not attempted
+
+=== A6: mobile daily limit (gateway 429) ============================
+
+  Mobile query for S1025 (no login, limit 3 per student per day at the gateway)
+    call 1: HTTP 200  remaining today=2  {"studentNo": "S1025", "term": null, "tuitionTotal": "3000.00", "totalPaid": "0.00", "bala
+    call 2: HTTP 200  remaining today=1  {"studentNo": "S1025", "term": null, "tuitionTotal": "3000.00", "totalPaid": "0.00", "bala
+    call 3: HTTP 200  remaining today=0  {"studentNo": "S1025", "term": null, "tuitionTotal": "3000.00", "totalPaid": "0.00", "bala
+    call 4: HTTP 429  remaining today=0  {"message": "Daily limit reached: at most 3 tuition queries per student per day.", "reques
+  PASS  the gateway answers 429 once the daily limit is used up
+  PASS  exactly the 4th call of the day is refused
+
+14/14 checks passed
+Note: the assistant's wording comes from the LLM, so a text check can fail on an otherwise correct answer. Read the reply.

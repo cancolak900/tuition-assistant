@@ -218,3 +218,8 @@ async def test_model_out_of_quota_is_skipped_on_the_next_call():
     await llm.generate("s", [{"role": "user", "text": "q"}], TOOLS)
     await llm.generate("s", [{"role": "user", "text": "q"}], TOOLS)
     assert used == ["gemini-test", "gemini-lite", "gemini-lite"]  # no wasted call on the second turn
+
+
+def test_fallback_list_is_tried_in_order_without_duplicates():
+    llm = GeminiLLM("test-key", "gemini-a", 0.2, " gemini-b, gemini-a ,gemini-c,")
+    assert llm.models == ["gemini-a", "gemini-b", "gemini-c"]
