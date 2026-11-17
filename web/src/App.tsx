@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
 import { homeFor } from "./auth/session";
+import { Admin } from "./pages/Admin";
 import { Chat } from "./pages/Chat";
 import { Login } from "./pages/Login";
 import { Placeholder } from "./pages/Placeholder";
@@ -28,7 +29,7 @@ export function AppRoutes() {
         path="/admin"
         element={
           <RequireAuth roles={["admin"]}>
-            <Placeholder wide title="Tuition administration">The admin screen comes after the chat screen.</Placeholder>
+            <Admin />
           </RequireAuth>
         }
       />

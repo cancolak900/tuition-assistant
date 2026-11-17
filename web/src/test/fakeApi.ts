@@ -19,11 +19,12 @@ export function installFakeApi(routes: Record<string, Handler>): Call[] {
   const calls: Call[] = [];
   vi.stubGlobal("fetch", async (input: string, init: RequestInit = {}) => {
     const headers = (init.headers ?? {}) as Record<string, string>;
-    const call: Call = { path: input, method: init.method ?? "GET", headers, body: init.body ? JSON.parse(init.body as string) : undefined };
+    const body = init.body instanceof FormData ? init.body : init.body ? JSON.parse(init.body as string) : undefined;
+    const call: Call = { path: input, method: init.method ?? "GET", headers, body };
     calls.push(call);
-    const handler = routes[`${call.method} ${input}`];
-    const { status, body } = handler ? await handler(call) : { status: 404, body: { error: { code: "NOT_FOUND", message: "no route" } } };
-    return new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+    const handler = routes[`${call.method} ${input}`] ?? routes[`${call.method} ${input.split("?")[0]}`];
+    const res = handler ? await handler(call) : { status: 404, body: { error: { code: "NOT_FOUND", message: "no route" } } };
+    return new Response(res.body === undefined ? null : JSON.stringify(res.body), { status: res.status, headers: { "Content-Type": "application/json" } });
   });
   return calls;
 }

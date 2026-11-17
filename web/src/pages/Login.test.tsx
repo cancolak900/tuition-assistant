@@ -27,6 +27,7 @@ function signIn(username: string, password: string) {
 function loginRoutes(role: "student" | "admin" | "bank", studentNo: string | null) {
   const token = fakeJwt({ sub: "1", role, studentNo, exp: exp() });
   return installFakeApi({
+    "GET /api/v1/admin/tuition/unpaid": () => ({ status: 200, body: { term: "2026-FALL", items: [], page: 1, pageSize: 10, totalItems: 0, totalPages: 0 } }),
     "POST /api/v1/auth/login": (c) =>
       (c.body as { password: string }).password === "right"
         ? { status: 200, body: { accessToken: token, tokenType: "bearer", expiresIn: 3600, role, studentNo } }
