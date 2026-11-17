@@ -21,7 +21,7 @@ OWN_STUDENT="${SMOKE_OWN_STUDENT:-S1001}"
 
 HOST="$(echo "$BASE_URL" | sed -E 's#^[a-z]+://##; s#[:/].*$##')"
 case "$HOST" in
-  localhost|127.0.0.1) BACKEND_PORTS="${SMOKE_BACKEND_PORTS:-8000}" ;;   # locally Postgres/MCP are bound to 127.0.0.1 for debugging
+  localhost|127.0.0.1) BACKEND_PORTS="${SMOKE_BACKEND_PORTS:-8000 8200}" ;;   # locally Postgres/MCP are bound to 127.0.0.1 for debugging
   *)                   BACKEND_PORTS="${SMOKE_BACKEND_PORTS:-8000 8100 8200 5432}" ;;
 esac
 

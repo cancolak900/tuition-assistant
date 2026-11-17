@@ -251,7 +251,7 @@ DB-less `kong.yml.template` (Kong 3.9). At container start the entrypoint inject
 | `GET ~/api/v1/mobile/tuition/(?<studentNo>[A-Za-z0-9]+)$` | tuition-api | **pre-function** (copies the captured `studentNo` into header `X-RateLimit-Student`) → **rate-limiting** `day: 3, limit_by: header, header_name: X-RateLimit-Student` |
 | `/api/v1/banking/*` | tuition-api | **jwt** |
 | `/api/v1/admin/*` | tuition-api | **jwt** |
-| `/api/v1/agent/*` | agent | **jwt**, rate-limiting (consumer, 30/min) |
+| `/api/v1/agent/*` | agent | **jwt**, rate-limiting (IP, 20/min; every token maps to the same Kong consumer, so a per-consumer limit would be global). Read timeout 90 s for LLM calls. |
 | `GET /api/v1/auth/me` | tuition-api | **jwt** |
 | `/api/v1/docs`, `/api/v1/openapi.json`, `/api/v1/health` | tuition-api | — |
 | `/` | web | — |
@@ -286,9 +286,12 @@ Returns `{document, documentId, matches:[{section, heading, text, score}]}`. Mat
 
 ## 9. Agent design
 
-**Endpoints** (behind Kong, JWT required):
-- `POST /api/v1/agent/chat` `{sessionId, message}` → `{reply, trace[], pendingAction|null}`
-- `POST /api/v1/agent/confirm` `{sessionId, actionId, decision:"confirm"|"cancel"}` → `{reply, trace[]}`
+**Endpoints** (behind Kong, JWT required; role `student` only, other roles get `403 FORBIDDEN_ROLE`):
+- `POST /api/v1/agent/chat` `{sessionId?, message}` → `{sessionId, reply, trace[], pendingAction|null}`. Without a `sessionId` a new session is created.
+- `POST /api/v1/agent/confirm` `{sessionId, actionId, decision:"confirm"|"cancel"}` → `{sessionId, reply, trace[], payment|null}`
+- `GET /api/v1/agent/health` (internal healthcheck; through Kong it also requires a token).
+- Sessions belong to the user who created them (another user's `sessionId` → `404 SESSION_NOT_FOUND`) and expire after 30 minutes of inactivity.
+- `trace[]` items: `{step, tool, kind: mcp|rest|local, input, output, status, durationMs}`. Errors use the same `{error:{code,message,details}}` body as the Tuition API.
 
 **Tools declared to Gemini**:
 | Tool | Executes via | Params |

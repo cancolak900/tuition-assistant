@@ -40,6 +40,19 @@ services:
     ports:
       - "127.0.0.1:8100:8100"
 
+  agent:
+    build: ./services/agent
+    environment:
+      GATEWAY_URL: ${GATEWAY_URL:-http://kong:8000}
+      MCP_URL: ${MCP_URL:-http://mcp-server:8100/mcp}
+      JWT_SECRET: ${JWT_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-latest}
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    # No published port: reached only through Kong at /api/v1/agent.
+
   kong:
     build: ./gateway
     environment:
