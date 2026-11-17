@@ -1,0 +1,89 @@
+# Kong declarative configuration (DB-less). docker-entrypoint.sh replaces ${JWT_SECRET} at start.
+# Every public REST route is versioned under /api/v1. The Admin API is disabled.
+_format_version: "3.0"
+_transform: true
+
+consumers:
+  - username: tuition-auth
+    jwt_secrets:
+      # The Tuition API signs tokens with iss="tuition-auth"; Kong looks the secret up by that claim.
+      - key: tuition-auth
+        algorithm: HS256
+        secret: "${JWT_SECRET}"
+
+services:
+  - name: tuition-api
+    url: http://tuition-api:8000
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    routes:
+      # --- public, no token ---
+      - name: login
+        paths: ["/api/v1/auth/login"]
+        methods: [POST, OPTIONS]
+        strip_path: false
+        plugins:
+          - name: rate-limiting  # brute-force protection
+            config: { minute: 20, limit_by: ip, policy: local }
+
+      - name: mobile-tuition
+        # The student number is captured from the path and becomes the rate-limit key (FR-02).
+        paths: ["~/api/v1/mobile/tuition/(?<studentNo>[A-Za-z0-9]{1,16})$"]
+        methods: [GET]
+        strip_path: false
+        plugins:
+          - name: pre-function
+            config:
+              access:
+                - |
+                  -- Overwrite any client-sent value so the key can never be spoofed.
+                  local captures = kong.request.get_uri_captures()
+                  local student = captures and captures.named and captures.named["studentNo"]
+                  kong.service.request.set_header("X-RateLimit-Student", string.upper(student or "unknown"))
+          - name: rate-limiting
+            config:
+              day: 3
+              limit_by: header
+              header_name: X-RateLimit-Student
+              policy: local
+              error_code: 429
+              error_message: "Daily limit reached: at most 3 tuition queries per student per day."
+
+      - name: docs
+        paths: ["/api/v1/docs", "/api/v1/openapi.json", "/api/v1/health"]
+        methods: [GET]
+        strip_path: false
+
+      # --- protected: valid JWT required at the edge ---
+      - name: auth-me
+        paths: ["/api/v1/auth/me"]
+        methods: [GET]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config: { claims_to_verify: [exp], key_claim_name: iss }
+
+      - name: banking
+        paths: ["/api/v1/banking"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config: { claims_to_verify: [exp], key_claim_name: iss }
+
+      - name: admin
+        paths: ["/api/v1/admin"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config: { claims_to_verify: [exp], key_claim_name: iss }
+
+plugins:
+  # One request id per call, returned to the client and passed to the services (and the agent trace).
+  - name: correlation-id
+    config: { header_name: X-Request-ID, generator: uuid, echo_downstream: true }
+  # Structured access log of every request on stdout (docker compose logs kong).
+  - name: file-log
+    config:
+      path: /dev/stdout
+      reopen: false

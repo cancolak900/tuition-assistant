@@ -63,3 +63,15 @@ def test_unexpected_error_returns_500_in_error_format(monkeypatch):
     assert res.status_code == 500
     assert res.json() == {"error": {"code": "INTERNAL_ERROR", "message": "An unexpected error occurred.", "details": None}}
     assert "secret" not in res.text
+
+
+def test_request_id_is_echoed_and_logged(make_client, caplog):
+    """Correlation id: the gateway's X-Request-ID is returned and written to the access log."""
+    import logging
+
+    c = make_client(UNREACHABLE_DB)
+    with caplog.at_level(logging.INFO, logger="tuition-api.access"):
+        res = c.get("/api/v1/health", headers={"X-Request-ID": "req-123"})
+    assert res.headers["X-Request-ID"] == "req-123"
+    assert any("request_id=req-123" in r.getMessage() and "status=200" in r.getMessage() for r in caplog.records)
+    assert len(c.get("/api/v1/health").headers["X-Request-ID"]) == 32  # generated when missing

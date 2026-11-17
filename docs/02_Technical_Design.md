@@ -243,7 +243,7 @@ Query errors: unknown student → `404 STUDENT_NOT_FOUND`; a `term` the student 
 
 ## 7. API Gateway (Kong) design
 
-DB-less `kong.yml.template`. At container start, `envsubst` injects `JWT_SECRET` and the upstream hosts. Proxy port `8000` is mapped to host `:80`. The Admin API is **not** exposed.
+DB-less `kong.yml.template` (Kong 3.9). At container start the entrypoint injects `JWT_SECRET`. Proxy port `8000` is mapped to host `:80`. The Admin API is **not** exposed.
 
 | Kong route (public) | Upstream | Plugins |
 |---|---|---|
@@ -252,10 +252,13 @@ DB-less `kong.yml.template`. At container start, `envsubst` injects `JWT_SECRET`
 | `/api/v1/banking/*` | tuition-api | **jwt** |
 | `/api/v1/admin/*` | tuition-api | **jwt** |
 | `/api/v1/agent/*` | agent | **jwt**, rate-limiting (consumer, 30/min) |
-| `/api/v1/docs`, `/api/v1/openapi.json` | tuition-api | — |
+| `GET /api/v1/auth/me` | tuition-api | **jwt** |
+| `/api/v1/docs`, `/api/v1/openapi.json`, `/api/v1/health` | tuition-api | — |
 | `/` | web | — |
 
-- Global plugins: `correlation-id` (an `X-Request-ID` header that also appears in the agent tool trace) and `file-log` to stdout.
+- Global plugins: `correlation-id` (an `X-Request-ID` header that also appears in the agent tool trace and in the Tuition API access log) and `file-log` to stdout.
+- Gateway errors use Kong's JSON body, e.g. `401 {"message":"Unauthorized"}`, `401 {"message":"Invalid signature"}`, `429 {"message":"Daily limit reached: at most 3 tuition queries per student per day.", "request_id": "…"}`. The mobile route also returns `X-RateLimit-Limit-Day` / `X-RateLimit-Remaining-Day` headers.
+- The JWT secret is injected at container start by `gateway/docker-entrypoint.sh` (it must be URL-safe base64). Locally Kong listens on `GATEWAY_PORT` (default 80); routes for the agent and the web UI are added with those services.
 - **Per-student limit (FR-02)**: the counter key is the student number taken from the path, so 3 different IPs asking for S1001 still share one counter, while S1001 and S1002 have separate counters. The pre-function overwrites any `X-RateLimit-Student` header sent by the client, so the key cannot be spoofed.
 - Backend protection: the services sit on the private compose network, and only Kong publishes a port.
 

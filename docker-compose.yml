@@ -1,5 +1,6 @@
 # Local stack. Services are added phase by phase (see docs/02_Technical_Design.md §3):
 #   Phase 1: tuition-api   Phase 2: mcp-server, kong   Phase 3: agent   Phase 4: web
+# Public entry point: Kong on http://localhost (GATEWAY_PORT, default 80).
 name: tuition-assistant
 
 services:
@@ -29,9 +30,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # Published only for local debugging until the gateway is added (step 28); then only Kong is public.
-    ports:
-      - "127.0.0.1:8000:8000"
+    # No published port: REST traffic reaches the API only through Kong.
 
   mcp-server:
     build: ./services/mcp-server
@@ -40,6 +39,17 @@ services:
     # Local only, for MCP Inspector. Agents reach it inside the network at http://mcp-server:8100/mcp.
     ports:
       - "127.0.0.1:8100:8100"
+
+  kong:
+    build: ./gateway
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      tuition-api:
+        condition: service_started
+    # The only public entry point for REST traffic. Set GATEWAY_PORT if port 80 is taken locally.
+    ports:
+      - "${GATEWAY_PORT:-80}:8000"
 
 volumes:
   pgdata:
