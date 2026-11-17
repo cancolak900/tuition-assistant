@@ -197,7 +197,7 @@ Swagger UI: `/api/v1/docs`. OpenAPI JSON: `/api/v1/openapi.json`. The exported c
 | 1b | `GET /auth/me` | any valid token | — | `200 {userId, username, role, studentNo}` | 401 |
 | 2 | `GET /mobile/tuition/{studentNo}?term=` | none, **3/day/student** | — | `200 TuitionSummary` | 404, 422, **429** (Kong) |
 | 3 | `GET /banking/tuition/{studentNo}?term=` | student (self), bank | — | `200 TuitionSummary` | 401, 403, 404 |
-| 4 | `POST /banking/payments` | student (self), bank | `{studentNo, term, amount, transactionId}` | `201 {status:"SUCCESS", transactionId, paidAmount, totalPaid, remainingBalance, currency}` | 401, 403, 404, **409** dup txn, **422** amount ≤0 / > balance |
+| 4 | `POST /banking/payments` | student (self), bank | `{studentNo, term, amount, transactionId}` | `201 {status:"SUCCESS", transactionId, studentNo, term, paidAmount, totalPaid, remainingBalance, currency}` | 401, 403, 404, **409** dup txn, **422** amount ≤0 / > balance |
 | 5 | `POST /admin/tuition` | admin | `{studentNo, term, amount, currency}` | `201 {status:"CREATED"}` / `200 {status:"UPDATED"}` | 401, 403, 409 (below paid), 422 |
 | 6 | `POST /admin/tuition/batch` | admin | `multipart/form-data file=<csv>` | `200 {status, successCount, failureCount, errors:[{row, studentNo, reason}]}` | 400 bad header/file, 401, 403 |
 | 7 | `GET /admin/tuition/unpaid?term=&page=1&pageSize=10` | admin | — | `200 {items:[{studentNo, fullName, tuitionTotal, paid, balance, currency}], page, pageSize, totalItems, totalPages}` | 401, 403, 422 (pageSize 1–100) |
@@ -215,6 +215,8 @@ Swagger UI: `/api/v1/docs`. OpenAPI JSON: `/api/v1/openapi.json`. The exported c
 }
 ```
 Amounts are serialized as strings, so no float rounding can occur.
+
+Payment errors: student acting for another student → `403 FORBIDDEN_OTHER_STUDENT`; unknown student/term → `404 STUDENT_NOT_FOUND` / `404 TUITION_NOT_FOUND`; reused `transactionId` → `409 DUPLICATE_TRANSACTION` (nothing is applied; `details` carries the original payment so a retrying client can treat it as already done); amount > balance → `422 AMOUNT_EXCEEDS_BALANCE` (`details.balance`); amount ≤ 0 or more than 2 decimals → `422 VALIDATION_ERROR`. `channel` is recorded as `agent` for student tokens and `bank` for bank tokens.
 
 Query errors: unknown student → `404 STUDENT_NOT_FOUND`; a `term` the student has no tuition for → `404 TUITION_NOT_FOUND`; malformed `term` → `422 VALIDATION_ERROR`. Terms are listed chronologically (`2026-FALL` before `2027-SPRING`). Amounts in different currencies are never added together: an overall query over mixed currencies returns `409 MIXED_CURRENCIES` (query one term instead).
 

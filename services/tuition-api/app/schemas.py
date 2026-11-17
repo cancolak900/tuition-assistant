@@ -76,6 +76,24 @@ class TermSummary(CamelModel):
     balance: Money
 
 
+class PaymentRequest(CamelModel):
+    student_no: str = Field(pattern=STUDENT_NO_REGEX, examples=["S1001"])
+    term: str = Field(pattern=TERM_REGEX, examples=["2026-FALL"])
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2, description="Positive, at most 2 decimals; send it as a string", examples=["500.00"])
+    transaction_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9._:-]+$", description="Client-generated idempotency key", examples=["TX-2026-0001"])
+
+
+class PaymentResponse(CamelModel):
+    status: str = Field(examples=["SUCCESS"])
+    transaction_id: str
+    student_no: str
+    term: str
+    paid_amount: Money
+    total_paid: Money
+    remaining_balance: Money
+    currency: str
+
+
 class TuitionSummary(CamelModel):
     student_no: str = Field(examples=["S1001"])
     term: str | None = Field(description="The requested term, or null for the overall total")

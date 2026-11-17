@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.routers.mobile import StudentNo, Term
-from app.schemas import TuitionSummary, error_responses
+from app.schemas import PaymentRequest, PaymentResponse, TuitionSummary, error_responses
 from app.security import ROLE_BANK, ROLE_STUDENT, CurrentUser, ensure_student_access, require_roles
+from app.services.payments import pay_tuition
 from app.services.tuition import get_summary
 
 router = APIRouter(prefix="/banking", tags=["Banking App"])
@@ -26,3 +27,16 @@ BankingUser = Annotated[CurrentUser, Depends(require_roles(ROLE_BANK, ROLE_STUDE
 def query_tuition_banking(studentNo: StudentNo, user: BankingUser, db: Annotated[Session, Depends(get_db)], term: Term = None) -> TuitionSummary:  # noqa: N803
     ensure_student_access(user, studentNo)
     return get_summary(db, studentNo, term)
+
+
+@router.post(
+    "/payments",
+    status_code=201,
+    response_model=PaymentResponse,
+    response_model_by_alias=True,
+    responses=error_responses(401, 403, 404, 409, 422),
+    summary="Pay tuition (simulated; full or partial, no overpayment, idempotent transactionId)",
+)
+def create_payment(body: PaymentRequest, user: BankingUser, db: Annotated[Session, Depends(get_db)]) -> PaymentResponse:
+    ensure_student_access(user, body.student_no)
+    return pay_tuition(db, user, body)
