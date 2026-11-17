@@ -49,7 +49,7 @@ describe("login screen", () => {
     const calls = loginRoutes("student", "S1001");
     renderAt("/login");
     signIn("s1001", "right");
-    expect(await screen.findByRole("heading", { name: "Assistant" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: /How can I help/ })).toBeTruthy();
     expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(["POST /api/v1/auth/login", "GET /api/v1/auth/me"]);
     expect(loadSession()?.user.studentNo).toBe("S1001"); // kept in sessionStorage for reloads
   });
@@ -104,10 +104,10 @@ describe("login screen", () => {
     loginRoutes("student", "S1001");
     renderAt("/login");
     signIn("s1001", "right");
-    await screen.findByRole("heading", { name: "Assistant" });
+    await screen.findByRole("heading", { name: /How can I help/ });
     cleanup();
     renderAt("/admin");
-    expect(await screen.findByRole("heading", { name: "Assistant" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: /How can I help/ })).toBeTruthy();
   });
 
   it("signs out from the account menu and forgets the token", async () => {

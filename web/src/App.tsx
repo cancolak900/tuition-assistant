@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
 import { homeFor } from "./auth/session";
+import { Chat } from "./pages/Chat";
 import { Login } from "./pages/Login";
 import { Placeholder } from "./pages/Placeholder";
 import { Styleguide } from "./pages/Styleguide";
@@ -19,7 +20,7 @@ export function AppRoutes() {
         path="/chat"
         element={
           <RequireAuth roles={["student"]}>
-            <Placeholder title="Assistant">The chat screen is the next step.</Placeholder>
+            <Chat />
           </RequireAuth>
         }
       />

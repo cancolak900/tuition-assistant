@@ -49,6 +49,8 @@ export function loadSession(now = Date.now()): Session | null {
 export function clearSession(): void {
   try {
     sessionStorage.removeItem(KEY);
+    // Also forget the chat history of this tab (keys "tuition-assistant.chat.<userId>").
+    for (const key of Object.keys(sessionStorage)) if (key.startsWith("tuition-assistant.chat.")) sessionStorage.removeItem(key);
   } catch {
     // ignore
   }
