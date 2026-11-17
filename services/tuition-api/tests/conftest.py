@@ -31,6 +31,27 @@ def postgres_url() -> Iterator[str]:
         yield pg.get_connection_url()
 
 
+def alembic_config(database_url: str):
+    from pathlib import Path
+
+    from alembic.config import Config
+
+    root = Path(__file__).resolve().parents[1]
+    cfg = Config(str(root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(root / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", database_url)
+    return cfg
+
+
+@pytest.fixture(scope="session")
+def migrated_url(postgres_url: str) -> str:
+    """The test database with every migration applied (alembic upgrade head)."""
+    from alembic import command
+
+    command.upgrade(alembic_config(postgres_url), "head")
+    return postgres_url
+
+
 @pytest.fixture
 def make_client(monkeypatch: pytest.MonkeyPatch):
     """Build a TestClient whose app points at the given database URL."""
