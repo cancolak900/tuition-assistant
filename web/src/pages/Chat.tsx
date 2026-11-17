@@ -56,12 +56,36 @@ export function Chat() {
   const { user } = useAuth();
   const { items, busy, send, decide, openCard } = useConversation(String(user?.userId ?? "anon"));
   const [draft, setDraft] = useState("");
-  const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const atBottom = useRef(true);
 
+  // Remember whether the reader is at the end of the conversation (measured before new content arrives).
   useEffect(() => {
-    endRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
-  }, [items.length, busy]);
+    const update = () => {
+      const doc = document.documentElement;
+      atBottom.current = window.innerHeight + window.scrollY >= doc.scrollHeight - 120;
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  // Follow the conversation: always after the student's own message, otherwise only if they were already at
+  // the end (someone reading an older answer is not pulled down). Scrolling to the very bottom of the page
+  // keeps the last message above the sticky input bar, which used to cover it.
+  const last = items[items.length - 1];
+  useEffect(() => {
+    if (!last || !(atBottom.current || last.kind === "user")) return;
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+      atBottom.current = true;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [items.length, busy, last]);
 
   const submit = (text: string) => {
     if (busy || !text.trim()) return;
@@ -102,7 +126,6 @@ export function Chat() {
             {busy && <Thinking />}
           </div>
         )}
-        <div ref={endRef} />
       </main>
 
       <div className="sticky bottom-0 bg-gradient-to-t from-bg-page from-70% to-transparent pt-lg pb-xl">

@@ -13,7 +13,7 @@ export function Admin() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <AppHeader wide right={<UserMenu />} />
+      <AppHeader right={<UserMenu />} />
       <main className="mx-auto flex w-full max-w-[1184px] flex-col gap-xl px-xl py-2xl">
         <div className="flex flex-col gap-xs">
           <h1 className="type-heading">Tuition administration</h1>

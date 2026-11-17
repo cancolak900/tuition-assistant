@@ -40,7 +40,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function Styleguide() {
   return (
     <div className="min-h-screen">
-      <AppHeader wide right={<Avatar initials="S1" />} />
+      <AppHeader right={<Avatar initials="S1" />} />
       <main className="mx-auto flex max-w-[1184px] flex-col gap-2xl px-xl py-2xl">
         <div>
           <h1 className="type-display">Design system</h1>

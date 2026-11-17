@@ -192,6 +192,42 @@ describe("chat screen", () => {
     expect(chatCalls(calls)[0].body).toEqual({ message: "What is my balance?" });
   });
 
+  it("scrolls to the newest message after sending and when the answer arrives", async () => {
+    const scrollTo = vi.fn();
+    vi.stubGlobal("scrollTo", scrollTo);
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => (cb(0), 1));
+    installFakeApi({ "POST /api/v1/agent/chat": () => ({ status: 200, body: { sessionId: "s1", reply: "answer", trace: [], pendingAction: null } }) });
+    renderChat();
+    type("hello");
+    await screen.findByText("answer");
+    expect(scrollTo.mock.calls.length).toBeGreaterThanOrEqual(2); // own message, then the reply
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+  });
+
+  it("does not pull a reader who scrolled up back to the bottom", async () => {
+    const scrollTo = vi.fn();
+    vi.stubGlobal("scrollTo", scrollTo);
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => (cb(0), 1));
+    let answer!: (v: unknown) => void;
+    installFakeApi({
+      "POST /api/v1/agent/chat": () =>
+        new Promise((resolve) => {
+          answer = () => resolve({ status: 200, body: { sessionId: "s1", reply: "late answer", trace: [], pendingAction: null } });
+        }),
+    });
+    renderChat();
+    type("hello");
+    await waitFor(() => expect(answer).toBeDefined());
+    const callsAfterSend = scrollTo.mock.calls.length;
+    // The reader scrolls up to an older message while the assistant is still thinking.
+    Object.defineProperty(document.documentElement, "scrollHeight", { configurable: true, value: 5000 });
+    window.dispatchEvent(new Event("scroll"));
+    answer(null);
+    await screen.findByText("late answer");
+    expect(scrollTo.mock.calls.length).toBe(callsAfterSend);
+    Object.defineProperty(document.documentElement, "scrollHeight", { configurable: true, value: 0 });
+  });
+
   it("summarizes trace steps like the Figma trace lines", () => {
     expect(summarize(balanceStep as never)).toBe("balance $5,000.00");
     expect(summarize(policyStep as never)).toBe("§2.1");

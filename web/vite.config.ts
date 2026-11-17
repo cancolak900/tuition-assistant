@@ -9,5 +9,5 @@ const gateway = process.env.GATEWAY_URL ?? "http://localhost";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: { port: 5173, proxy: { "/api": { target: gateway, changeOrigin: true } } },
-  test: { environment: "jsdom", globals: false },
+  test: { environment: "jsdom", globals: false, setupFiles: ["./src/test/setup.ts"] },
 });
