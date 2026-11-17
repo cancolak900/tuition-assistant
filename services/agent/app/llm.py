@@ -11,6 +11,7 @@ to the agent, which executes it and records it in the trace. Tests use a scripte
 
 import asyncio
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -63,6 +64,7 @@ class GeminiLLM:
     """
 
     retry_delays: tuple[float, ...] = (1.0, 2.0)
+    cooldown_seconds = 60.0  # a model that hit its quota or timed out is skipped for a while
 
     def __init__(self, api_key: str, model: str, temperature: float, fallback_model: str = "", timeout_s: float = 25.0) -> None:
         if not api_key:
@@ -73,6 +75,10 @@ class GeminiLLM:
         self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=int(timeout_s * 1000)))
         self.models = [model] + ([fallback_model] if fallback_model and fallback_model != model else [])
         self._temperature = temperature
+        self._skip_until: dict[str, float] = {}
+
+    def _cool_down(self, model: str) -> None:
+        self._skip_until[model] = time.monotonic() + self.cooldown_seconds
 
     @staticmethod
     def _contents(history: list[dict[str, Any]], model: str) -> list[Any]:
@@ -113,10 +119,12 @@ class GeminiLLM:
                     raise AppError(503, "LLM_UNAVAILABLE", "The language model is not reachable right now. Please try again later.") from exc
                 last = exc
                 if exc.code == 429:
+                    self._cool_down(model)
                     break  # quota: waiting a second will not help, go to the fallback model
             except httpx.TimeoutException as exc:
                 logger.warning("Gemini %s timed out (attempt %d)", model, attempt + 1)
                 last = exc
+                self._cool_down(model)
                 break  # a slow model stays slow; do not spend the whole turn budget on it
             if attempt < len(self.retry_delays):
                 await asyncio.sleep(self.retry_delays[attempt])
@@ -136,7 +144,10 @@ class GeminiLLM:
         )
         response, used = None, None
         last: Exception | None = None
-        for model in self.models:
+        now = time.monotonic()
+        # Models in cool-down go last instead of first (never dropped: a cooled model is better than no answer).
+        ordered = sorted(self.models, key=lambda m: self._skip_until.get(m, 0) > now)
+        for model in ordered:
             try:
                 response, used = await self._call(model, history, config), model
                 break

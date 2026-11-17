@@ -17,7 +17,7 @@ from app.prompts import system_prompt
 from app.schemas import ChatResponse, ConfirmResponse, TraceStep
 from app.security import CurrentUser
 from app.sessions import SessionStore
-from app.tools import TOOL_KINDS, TOOLS, ToolContext, ToolExecutor, shorten
+from app.tools import TOOL_KINDS, ToolContext, ToolExecutor, shorten
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,9 @@ class Agent:
 
     async def _loop(self, past: list[dict[str, Any]], turn: list[dict[str, Any]], trace: list[TraceStep], ctx: ToolContext) -> str:
         system = system_prompt(ctx.student_no)
+        tools = await self.executor.specs()
         for _ in range(self.settings.max_tool_rounds):
-            answer = await self.llm.generate(system, past + turn, TOOLS)
+            answer = await self.llm.generate(system, past + turn, tools)
             turn.append({"role": "model", "text": answer.text, "calls": answer.calls, "raw": answer.raw, "model": answer.model})
             if not answer.calls:
                 return answer.text or EMPTY_REPLY

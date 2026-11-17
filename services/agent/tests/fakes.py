@@ -47,6 +47,9 @@ class FakePolicies:
         self.outcome = outcome or ToolOutcome(True, POLICY_HIT)
         self.queries: list[tuple[str, int]] = []
 
+    async def list_tools(self):
+        raise ConnectionError("no MCP server in unit tests")  # the executor falls back to the built-in schema
+
     async def search(self, query: str, top_k: int = 3) -> ToolOutcome:
         self.queries.append((query, top_k))
         return self.outcome

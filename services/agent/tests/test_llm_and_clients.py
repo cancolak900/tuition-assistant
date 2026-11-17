@@ -1,12 +1,13 @@
 """Gemini adapter (no network: the SDK call is replaced) and the REST / MCP clients."""
 
+import json
 from types import SimpleNamespace
 
 import httpx
 import pytest
 from google.genai import errors, types
 
-from app.clients import PolicyClient, TuitionClient
+from app.clients import TuitionClient
 from app.errors import AppError
 from app.llm import GeminiLLM, ToolCall, ToolResult
 from app.tools import TOOLS
@@ -176,8 +177,44 @@ async def test_query_tuition_network_failure():
     assert (out.ok, out.data["code"]) == (False, "TUITION_API_UNAVAILABLE")
 
 
-# ---------- MCP client ----------
+async def test_query_tuition_timeout_is_not_reported_as_a_result():
+    def handler(request):
+        raise httpx.ReadTimeout("slow", request=request)
 
-async def test_policy_client_unreachable_server():
-    out = await PolicyClient("http://127.0.0.1:9/mcp", timeout=2).search("deadline")
-    assert (out.ok, out.data["code"]) == (False, "POLICY_SEARCH_UNAVAILABLE")
+    out = await tuition_client(handler).query_tuition("S1001", None, "tok")
+    assert (out.ok, out.data["code"]) == (False, "TUITION_API_TIMEOUT")
+
+
+async def test_pay_tuition_posts_the_payment_with_its_transaction_id():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["request"] = request
+        return httpx.Response(201, json={"status": "SUCCESS", "transactionId": "tx-1"})
+
+    out = await tuition_client(handler).pay_tuition("S1001", "2026-FALL", "500.00", "tx-1", "tok", "rid-2")
+    req = seen["request"]
+    assert out.ok and out.data["status"] == "SUCCESS"
+    assert (req.method, str(req.url)) == ("POST", "http://kong:8000/api/v1/banking/payments")
+    assert json.loads(req.content) == {"studentNo": "S1001", "term": "2026-FALL", "amount": "500.00", "transactionId": "tx-1"}
+    assert req.headers["Authorization"] == "Bearer tok"
+
+
+async def test_api_error_details_are_kept():
+    res = httpx.Response(422, json={"error": {"code": "AMOUNT_EXCEEDS_BALANCE", "message": "too much", "details": {"balance": "100.00"}}})
+    out = await tuition_client(lambda _: res).pay_tuition("S1001", "2026-FALL", "500.00", "tx", "tok")
+    assert out.data == {"code": "AMOUNT_EXCEEDS_BALANCE", "message": "too much", "httpStatus": 422, "details": {"balance": "100.00"}}
+
+async def test_model_out_of_quota_is_skipped_on_the_next_call():
+    used = []
+
+    async def handler(*, model, contents, config):
+        used.append(model)
+        if model == "gemini-test":
+            raise errors.APIError(429, {"error": {"code": 429, "message": "quota", "status": "RESOURCE_EXHAUSTED"}})
+        return response(types.Part(text="ok"))
+
+    llm = gemini_with(handler, fallback="gemini-lite")
+    await llm.generate("s", [{"role": "user", "text": "q"}], TOOLS)
+    await llm.generate("s", [{"role": "user", "text": "q"}], TOOLS)
+    assert used == ["gemini-test", "gemini-lite", "gemini-lite"]  # no wasted call on the second turn

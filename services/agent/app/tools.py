@@ -3,19 +3,25 @@
 Arguments coming from the LLM are validated here before anything is sent to a service.
 """
 
+import inspect
+import logging
 import re
 import time
 from dataclasses import dataclass
 from typing import Any
 
-from app.clients import PolicyClient, ToolOutcome, TuitionClient
+from app.clients import POLICY_TOOL, PolicyClient, ToolOutcome, TuitionClient
 from app.llm import ToolCall, ToolSpec
+
+logger = logging.getLogger(__name__)
 
 STUDENT_NO_RE = re.compile(r"^[A-Za-z0-9]{1,16}$")
 TERM_RE = re.compile(r"^\d{4}-(FALL|SPRING)$")  # same rule as the Tuition API
 MAX_QUERY_CHARS = 500
 TRACE_TEXT_CHARS = 300
+SCHEMA_RETRY_SECONDS = 60
 
+# search_tuition_policies is replaced by the schema the MCP server publishes (list_tools) once it is reachable.
 TOOLS: list[ToolSpec] = [
     ToolSpec(
         name="search_tuition_policies",
@@ -99,6 +105,23 @@ class ToolExecutor:
     def __init__(self, policies: PolicyClient, tuition: TuitionClient) -> None:
         self.policies = policies
         self.tuition = tuition
+        self._policy_spec: ToolSpec | None = None
+        self._retry_at = 0.0
+
+    async def specs(self) -> list[ToolSpec]:
+        """Tools for the LLM. The policy tool's description and schema come from the MCP server."""
+        if self._policy_spec is None and time.monotonic() >= self._retry_at:
+            try:
+                remote = next((t for t in await self.policies.list_tools() if t.name == POLICY_TOOL), None)
+            except Exception as exc:  # MCP down: use the built-in copy and try again later
+                logger.warning("MCP list_tools failed, using the built-in schema: %r", exc)
+                remote = None
+            if remote is not None:
+                self._policy_spec = ToolSpec(remote.name, inspect.cleandoc(remote.description) or TOOLS[0].description, remote.input_schema)
+                logger.info("Loaded the %s schema from the MCP server", POLICY_TOOL)
+            else:
+                self._retry_at = time.monotonic() + SCHEMA_RETRY_SECONDS
+        return [self._policy_spec or TOOLS[0], *TOOLS[1:]]
 
     async def run(self, call: ToolCall, ctx: ToolContext) -> Execution:
         start = time.perf_counter()

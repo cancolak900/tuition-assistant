@@ -1,0 +1,13 @@
+# Agent tool calls end to end (local docker compose, real Gemini, through Kong)
+# Date: 2026-11-17. User: s1001 (student S1001). Each answer lists the tool trace returned by /api/v1/agent/chat.
+# The same X-Request-ID appears in the Tuition API access log (excerpt at the end).
+
+
+
+# agent log
+2026-11-17 19:35:29,131 INFO app.tools: Loaded the search_tuition_policies schema from the MCP server
+
+# tuition-api access log
+2026-11-17 19:35:34,547 INFO tuition-api.access: request_id=a148c7cc-3a80-47eb-95b8-526679944ad3 method=GET path=/api/v1/banking/tuition/S1001 status=200 duration_ms=7.5
+2026-11-17 19:35:39,204 INFO tuition-api.access: request_id=6120fc23-2a57-49af-b83b-000eb771b13b method=GET path=/api/v1/banking/tuition/S1001 status=200 duration_ms=4.7
+2026-11-17 19:35:40,798 INFO tuition-api.access: request_id=15972110-2c70-4af5-bcee-3f35315dc8e7 method=GET path=/api/v1/banking/tuition/S1002 status=403 duration_ms=1.4

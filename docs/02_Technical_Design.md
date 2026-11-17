@@ -296,15 +296,15 @@ Returns `{document, documentId, matches:[{section, heading, text, score}]}`. Mat
 **Tools declared to Gemini**:
 | Tool | Executes via | Params |
 |---|---|---|
-| `search_tuition_policies` | MCP client (`list_tools` at startup; the schema comes from the server) | `query`, `top_k?` |
+| `search_tuition_policies` | MCP client (streamable HTTP). Description and schema come from the server via `list_tools` (loaded on the first chat; a built-in copy is used while the server is unreachable, retried after 60 s) | `query`, `top_k?` |
 | `query_tuition` | REST → Kong → `GET /banking/tuition/{studentNo}` | `term?`, `studentNo?` (defaults to the token's own) |
-| `pay_tuition` | **pending action only** | `term`, `amount` |
+| `pay_tuition` | **pending action only**; the payment itself is `POST /banking/payments` via Kong, after `/confirm` | `term`, `amount` |
 
 **Loop** (`agent.py`, `llm.py`): send the history and tools. While the response contains `functionCall`s (at most 5 rounds): execute each one, append a `functionResponse`, and record a trace entry `{step, tool, input, output(truncated), durationMs}`. Then return the final text. Automatic function calling in the SDK is **disabled**, so the agent controls every call.
 - Tool arguments from the LLM are validated before any call (`studentNo` letters/digits, `term` like `2026-FALL`, non-empty `query`, `top_k` clamped to 1..10). A bad call or a service error goes back to the LLM as `{"error":{code,message}}` and the trace step has `status:"error"`.
-- `query_tuition` calls Kong with the **user's own JWT** (and the request's `X-Request-ID`), so asking for another student returns the API's `403` and the model is told to refuse.
+- `query_tuition` calls Kong with the **user's own JWT** (and the request's `X-Request-ID`, so one id links the agent, Kong and Tuition API logs). Asking for another student returns the API's `403` and the model is told to refuse. Client errors keep the API's `{code, message, details}`; Kong's own errors become `HTTP_<status>`; a timeout is reported as `TUITION_API_TIMEOUT` (result unknown), not as a failure.
 - Only a finished turn is stored in the session; if the LLM fails, the history is unchanged.
-- **Resilience**: each Gemini call has a 25 s timeout; overload (500/503/504) is retried twice (1 s, 2 s); quota (429), overload after retries or a timeout switch to the fallback model. Turns replayed to a different model are rebuilt without the other model's thought signatures. The whole turn is limited to 80 s (Kong's read timeout is 90 s).
+- **Resilience**: each Gemini call has a 25 s timeout; overload (500/503/504) is retried twice (1 s, 2 s); quota (429), overload after retries or a timeout switch to the fallback model, and a model that hit its quota or timed out is tried last for the next 60 s. Turns replayed to a different model are rebuilt without the other model's thought signatures. The whole turn is limited to 80 s (Kong's read timeout is 90 s).
 - Errors: `503 LLM_NOT_CONFIGURED` (no API key), `503 LLM_BUSY` (every model overloaded or out of quota), `503 LLM_UNAVAILABLE` (other model error), `504 AGENT_TIMEOUT`.
 
 **Payment confirmation (FR-33)**: `pay_tuition` → the agent calls `query_tuition` for the current balance, generates `transactionId = uuid4`, stores `PendingAction{id, studentNo, term, amount, balance, transactionId, expiresAt(+5m)}` in the session, and returns it to the LLM as `{status:"AWAITING_USER_CONFIRMATION"}`. The UI shows a confirmation card. Only `POST /confirm` with `decision=confirm` calls `POST /banking/payments`, and it reuses the **same** `transactionId`, so a retry cannot double-charge. The rule is enforced in code, not only in the prompt.
