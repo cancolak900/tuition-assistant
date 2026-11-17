@@ -30,8 +30,9 @@ def test_pay_tuition_only_creates_a_pending_action(client, llm, tuition):  # G-0
     assert (pending["term"], pending["amount"], pending["balance"], pending["balanceAfter"], pending["currency"]) == (
         "2026-FALL", "500.00", "2500.00", "2000.00", "USD")
     assert pending["studentNo"] == "S1001" and pending["type"] == "pay_tuition"
-    [step] = body["trace"]
-    assert (step["tool"], step["kind"], step["status"]) == ("pay_tuition", "local", "ok")
+    check, step = body["trace"]  # the balance check is its own step, before the tool that made it
+    assert (check["step"], check["tool"], check["kind"], check["input"]["reason"]) == (1, "query_tuition", "rest", "balance check before payment")
+    assert (step["step"], step["tool"], step["kind"], step["status"]) == (2, "pay_tuition", "local", "ok")
     assert step["output"]["status"] == "AWAITING_USER_CONFIRMATION"
     assert [r["term"] for r in tuition.requests] == ["2026-FALL"]  # live balance checked first
 
@@ -102,13 +103,13 @@ def test_rejected_payment_is_explained_and_closed(client, llm, tuition, agent):
 @pytest.mark.parametrize(("amount", "code"), [("2500.01", "AMOUNT_EXCEEDS_BALANCE")])
 def test_overpayment_is_refused_before_any_card(client, llm, tuition, amount, code):
     body = prepare(client, llm, amount=amount)
-    assert body["pendingAction"] is None and body["trace"][0]["output"]["error"]["code"] == code
+    assert body["pendingAction"] is None and body["trace"][-1]["output"]["error"]["code"] == code
 
 
 def test_nothing_to_pay(client, llm, tuition):
     tuition.balance = tuition.balance - tuition.balance
     body = prepare(client, llm)
-    assert body["pendingAction"] is None and body["trace"][0]["output"]["error"]["code"] == "NOTHING_TO_PAY"
+    assert body["pendingAction"] is None and body["trace"][-1]["output"]["error"]["code"] == "NOTHING_TO_PAY"
 
 
 def test_balance_errors_stop_the_preparation(client, llm, tuition):
@@ -117,7 +118,7 @@ def test_balance_errors_stop_the_preparation(client, llm, tuition):
 
     tuition.query_tuition = failing
     body = prepare(client, llm)
-    assert body["pendingAction"] is None and body["trace"][0]["output"]["error"]["code"] == "TUITION_API_UNAVAILABLE"
+    assert body["pendingAction"] is None and body["trace"][-1]["output"]["error"]["code"] == "TUITION_API_UNAVAILABLE"
 
 
 def test_new_request_replaces_the_old_pending_action(client, llm, tuition):

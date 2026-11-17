@@ -1,0 +1,7 @@
+# Tool trace (FR-35): the same steps in the API response and in the agent log (one JSON line per turn)
+# Date: 2026-11-17. Local docker compose, real Gemini, through Kong. User: s1001. The prepared payment was cancelled (nothing paid).
+
+
+
+# docker compose logs agent | grep agent.trace
+

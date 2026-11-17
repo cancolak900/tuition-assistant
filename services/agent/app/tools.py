@@ -8,7 +8,7 @@ import logging
 import re
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -87,6 +87,18 @@ class ToolContext:
     request_id: str | None = None
     session: Session | None = None  # needed by pay_tuition to store the pending payment
     pending_ttl: timedelta = timedelta(minutes=5)
+    sub_steps: list["SubStep"] = field(default_factory=list)  # service calls a tool makes internally
+
+
+@dataclass
+class SubStep:
+    """A call a tool made on its own (e.g. pay_tuition checking the balance); shown as its own trace step."""
+
+    tool: str
+    kind: str
+    input: dict[str, Any]
+    outcome: ToolOutcome
+    duration_ms: int
 
 
 def money(value: Decimal) -> str:
@@ -110,6 +122,7 @@ def parse_amount(value: Any) -> Decimal | None:
 class Execution:
     outcome: ToolOutcome
     duration_ms: int
+    sub_steps: list[SubStep] = field(default_factory=list)
 
     @property
     def llm_output(self) -> Any:
@@ -150,9 +163,10 @@ class ToolExecutor:
         return [self._policy_spec or TOOLS[0], *TOOLS[1:]]
 
     async def run(self, call: ToolCall, ctx: ToolContext) -> Execution:
+        ctx.sub_steps = []
         start = time.perf_counter()
         outcome = await self._dispatch(call, ctx)
-        return Execution(outcome, int((time.perf_counter() - start) * 1000))
+        return Execution(outcome, int((time.perf_counter() - start) * 1000), list(ctx.sub_steps))
 
     async def _dispatch(self, call: ToolCall, ctx: ToolContext) -> ToolOutcome:
         args = call.args or {}
@@ -175,7 +189,10 @@ class ToolExecutor:
         if ctx.session is None:
             return ToolOutcome.error("NOT_AVAILABLE", "Payments can only be prepared in a chat session.")
         # Payment is always for the logged-in student: the LLM cannot choose another student here.
+        start = time.perf_counter()
         live = await self.tuition.query_tuition(ctx.student_no, term, ctx.token, ctx.request_id)
+        ctx.sub_steps.append(SubStep("query_tuition", "rest", {"studentNo": ctx.student_no, "term": term, "reason": "balance check before payment"},
+                                     live, int((time.perf_counter() - start) * 1000)))
         if not live.ok:
             return live
         balance, currency = Decimal(live.data["balance"]), live.data["currency"]

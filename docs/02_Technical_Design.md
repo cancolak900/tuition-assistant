@@ -292,6 +292,7 @@ Returns `{document, documentId, matches:[{section, heading, text, score}]}`. Mat
 - `GET /api/v1/agent/health` (internal healthcheck; through Kong it also requires a token).
 - Sessions belong to the user who created them (another user's `sessionId` → `404 SESSION_NOT_FOUND`) and expire after 30 minutes of inactivity.
 - `trace[]` items: `{step, tool, kind: mcp|rest|local, input, output, status, durationMs}`. Errors use the same `{error:{code,message,details}}` body as the Tuition API.
+- **Tool trace (FR-35)**: steps are numbered in the order they ran. A call a tool makes on its own is a separate step before it (`pay_tuition` → `query_tuition` with `reason: "balance check before payment"`). A failed tool has `status:"error"` and `output:{error:{code,message,httpStatus}}` only. Long texts are cut to 300 characters in the response (the LLM gets the full text). Every chat turn and every `/confirm` also writes one JSON line to the `agent.trace` logger: `{event: chat_turn|payment_confirm, requestId, sessionId, studentNo, durationMs, rounds, model, steps[], reply, error?, pendingActionId?}` with outputs cut to 120 characters. The token is never logged. `requestId` is the gateway's `X-Request-ID`, so one id finds the turn in the Kong, agent and Tuition API logs.
 
 **Tools declared to Gemini**:
 | Tool | Executes via | Params |
