@@ -80,18 +80,25 @@ export function Chat() {
   const last = items[items.length - 1];
   useEffect(() => {
     if (!last || !(atBottom.current || last.kind === "user")) return;
-    const frame = window.requestAnimationFrame(() => {
-      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+    // Instant, not smooth: a smooth scroll can be cancelled by the browser (e.g. by focusing the input).
+    // A second pass catches content that grows right after rendering (fonts, the card, the trace line).
+    const toBottom = () => {
+      window.scrollTo({ top: document.documentElement.scrollHeight });
       atBottom.current = true;
-    });
-    return () => window.cancelAnimationFrame(frame);
+    };
+    const frame = window.requestAnimationFrame(toBottom);
+    const timer = window.setTimeout(toBottom, 150);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
   }, [items.length, busy, last]);
 
   const submit = (text: string) => {
     if (busy || !text.trim()) return;
     setDraft("");
     void send(text);
-    inputRef.current?.focus();
+    inputRef.current?.focus({ preventScroll: true }); // focusing must not fight the scroll to the newest message
   };
 
   const onSubmit = (e: FormEvent) => {

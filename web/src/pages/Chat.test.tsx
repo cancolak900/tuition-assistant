@@ -201,7 +201,7 @@ describe("chat screen", () => {
     type("hello");
     await screen.findByText("answer");
     expect(scrollTo.mock.calls.length).toBeGreaterThanOrEqual(2); // own message, then the reply
-    expect(scrollTo).toHaveBeenLastCalledWith({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: document.documentElement.scrollHeight });
   });
 
   it("does not pull a reader who scrolled up back to the bottom", async () => {
