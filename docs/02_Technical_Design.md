@@ -254,11 +254,12 @@ DB-less `kong.yml.template` (Kong 3.9). At container start the entrypoint inject
 | `/api/v1/agent/*` | agent | **jwt**, rate-limiting (IP, 20/min; every token maps to the same Kong consumer, so a per-consumer limit would be global). Read timeout 90 s for LLM calls. |
 | `GET /api/v1/auth/me` | tuition-api | **jwt** |
 | `/api/v1/docs`, `/api/v1/openapi.json`, `/api/v1/health` | tuition-api | — |
-| `/` | web | — |
+| `/` (everything else) | web (nginx, static UI) | — |
 
 - Global plugins: `correlation-id` (an `X-Request-ID` header that also appears in the agent tool trace and in the Tuition API access log) and `file-log` to stdout.
 - Gateway errors use Kong's JSON body, e.g. `401 {"message":"Unauthorized"}`, `401 {"message":"Invalid signature"}`, `429 {"message":"Daily limit reached: at most 3 tuition queries per student per day.", "request_id": "…"}`. The mobile route also returns `X-RateLimit-Limit-Day` / `X-RateLimit-Remaining-Day` headers.
-- The JWT secret is injected at container start by `gateway/docker-entrypoint.sh` (it must be URL-safe base64). Locally Kong listens on `GATEWAY_PORT` (default 80); routes for the agent and the web UI are added with those services.
+- The JWT secret is injected at container start by `gateway/docker-entrypoint.sh` (it must be URL-safe base64). Locally Kong listens on `GATEWAY_PORT` (default 80).
+- The web route is `paths: ["/"]` **without** `methods`: Kong ranks routes that also match on method above path-only routes, so a `GET`-only `/` route would win over `/api/v1/banking` and send unauthenticated API calls to the UI. With paths only, the longest prefix wins. The web container (nginx, non-root, port 8080, not published) serves the built app, falls back to `index.html` for client routes, caches hashed assets for a year, sends CSP / `X-Frame-Options: DENY` / `nosniff` headers, and answers any `/api/*` path that reaches it with a JSON 404. The smoke test checks `/`, a client route and an unknown API path.
 - **Per-student limit (FR-02)**: the counter key is the student number taken from the path, so 3 different IPs asking for S1001 still share one counter, while S1001 and S1002 have separate counters. The pre-function overwrites any `X-RateLimit-Student` header sent by the client, so the key cannot be spoofed.
 - Backend protection: the services sit on the private compose network, and only Kong publishes a port.
 

@@ -93,6 +93,18 @@ services:
           - name: rate-limiting  # every token maps to one Kong consumer, so limit per client IP
             config: { minute: 20, limit_by: ip, policy: local }
 
+  - name: web
+    url: http://web:8080
+    connect_timeout: 5000
+    read_timeout: 10000
+    routes:
+      # Everything that is not an API route: the static web UI. Kong picks the longest matching path,
+      # so /api/v1/... always goes to the services above. No `methods` here on purpose: Kong ranks a route
+      # with methods above path-only routes, which would make "/" win over /api/v1/banking etc.
+      - name: web
+        paths: ["/"]
+        strip_path: false
+
 plugins:
   # One request id per call, returned to the client and passed to the services (and the agent trace).
   - name: correlation-id

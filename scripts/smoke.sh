@@ -120,5 +120,15 @@ rid="$(header X-Request-ID)"
 check extra "X-Request-ID header returned by the gateway" yes "$([ -n "$rid" ] && echo yes || echo no)" "$rid"
 echo
 
+# ---------------------------------------------------------------------------------------------
+echo "Web UI through the gateway"
+request "$BASE_URL/"
+check extra "GET / (web UI served by Kong)" 200 "$CODE" "$(header Content-Type)"
+request "$BASE_URL/chat"
+check extra "GET /chat (client-side route falls back to the app)" 200 "$CODE"
+request "$API/does-not-exist"
+check extra "unknown API path is a JSON 404, not the web page" 404 "$CODE" "$(body_short)"
+echo
+
 echo "Result: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
