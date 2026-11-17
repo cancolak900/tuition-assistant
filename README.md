@@ -8,7 +8,7 @@ An AI agent that answers tuition questions by combining a university policy docu
 - [Requirements (SRS)](docs/01_SRS.md)
 - [Technical design](docs/02_Technical_Design.md)
 - [Test plan](docs/03_Test_Plan.md)
-- [Tuition policy document indexed by the MCP server](docs/University_Tuition_Policies.md)
+- [Tuition policy document indexed by the MCP server](services/mcp-server/data/University_Tuition_Policies.md)
 
 ## Quick start (local)
 ```bash
