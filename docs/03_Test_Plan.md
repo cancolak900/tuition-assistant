@@ -86,12 +86,14 @@ M-03 to M-05 are also the **three demonstrated retrieval queries** (MCP Inspecto
 
 ## 5. Gateway / E2E smoke (`scripts/smoke.sh`)
 
+Run: `bash scripts/smoke.sh [base-url]` (default `http://localhost`). It needs only bash and curl and exits non-zero on failure. The rate-limit checks read `X-RateLimit-Remaining-Day` and use the extra seed students (S1004–S1030), so the script can run many times a day and never uses up the demo logins' quota.
+
 | ID | Case | Expected |
 |---|---|---|
 | E-01 | Protected route without a token | 401 from Kong |
 | E-02 | Protected route with a token | 200 |
-| E-03 | Mobile query ×4 for S1001 | the 4th call returns 429 |
-| E-04 | Mobile query for S1002 after the S1001 limit is hit | 200 (separate counter) |
+| E-03 | Mobile query for one student until its daily quota is used (3 calls), then once more | that call returns 429 |
+| E-04 | Mobile query for a different student after the first one is limited | 200 (separate counter) |
 | E-05 | Direct backend port from outside | connection refused (only :80 open) |
 | E-06 | Swagger at `/api/v1/docs` | 200 |
 
