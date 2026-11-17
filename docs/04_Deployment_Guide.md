@@ -15,7 +15,7 @@ Internet ──80──▶ EC2 (Ubuntu 24.04, Elastic IP)
 | Region | **Europe (Frankfurt) `eu-central-1`**. Any region works; use the same one for every resource. |
 | EC2 | `t3.small` (2 vCPU, 2 GB), Ubuntu Server 24.04 LTS, 20 GB gp3 |
 | RDS | PostgreSQL 16, `db.t4g.micro`, 20 GB gp3, single-AZ, no public access |
-| Network | Default VPC. Security groups: EC2 allows 80 from anywhere and 22 from your IP. RDS allows 5432 only from the EC2 instance. |
+| Network | Default VPC. `tuition-ec2-sg` allows 80 from anywhere and 22 from your IP. `tuition-rds-sg` allows 5432 only from `tuition-ec2-sg`. |
 | Cost | About $1/day while running (see [§9](#9-cost-and-teardown)) |
 
 Console labels change from time to time. If a label below differs slightly, choose the option with the same meaning.
@@ -31,7 +31,41 @@ Console labels change from time to time. If a label below differs slightly, choo
 1. Sign in to the AWS Console.
 2. In the region menu at the top right, choose **Europe (Frankfurt) eu-central-1**.
 
-## 2. Create a key pair (SSH access)
+## 2. Create the RDS database
+1. Open **Aurora and RDS** (search "RDS") → **Databases** → **Create database**.
+2. **Choose a database creation method**: **Full configuration** (called *Standard create* in older consoles), not *Easy create*.
+3. **Engine options**: **PostgreSQL**. For **Engine version**, pick the latest **PostgreSQL 16.x**.
+4. **Templates**: **Free tier** (or *Sandbox*). This selects a single-AZ deployment.
+5. **Settings**:
+   - **DB instance identifier**: `tuition-db`
+   - **Master username**: `tuition`
+   - **Credentials management**: **Self managed**. *Managed in AWS Secrets Manager* costs extra and is not needed.
+   - Leave **Auto generate password** unticked.
+   - **Master password**: a strong password made of letters and digits only. Store it in your password manager; it is entered only on the server in [§7](#7-configure-and-start-the-stack).
+6. **Instance configuration**: **Burstable classes** → `db.t4g.micro`.
+7. **Storage**:
+   - **Storage type**: gp3
+   - **Allocated storage**: `20` GiB
+   - Under **Storage autoscaling**, untick **Enable storage autoscaling**.
+8. **Connectivity**:
+   - **Compute resource**: **Don't connect to an EC2 compute resource**. The instance does not exist yet; the firewall rule is added in [§5](#5-allow-the-server-to-reach-the-database).
+   - **Virtual private cloud (VPC)**: the default VPC.
+   - **DB subnet group**: the default.
+   - **Public access**: **No**.
+   - **VPC security group (firewall)**: **Create new**, name `tuition-rds-sg`.
+   - **Availability Zone**: No preference.
+   - **Database port** (under *Additional configuration*): `5432`.
+9. **Database authentication**: **Password authentication**.
+10. **Monitoring**: the free *Standard* option. Leave Performance Insights and Enhanced Monitoring off.
+11. **Additional configuration** (near the bottom of the page):
+    - **Initial database name**: `tuition`. Without it, RDS creates no database and the migrations fail.
+    - **Backup retention period**: 1 day.
+    - Untick **Enable deletion protection** so the database can be removed at the end.
+12. Check **Estimated monthly costs** at the bottom, then click **Create database**. If a pop-up offers add-ons, close it.
+13. Wait about 5–10 minutes until **Status** is *Available*.
+14. Open `tuition-db` → **Connectivity & security** and copy the **Endpoint**, for example `tuition-db.abc123xyz.eu-central-1.rds.amazonaws.com`. It is called `<RDS_ENDPOINT>` below.
+
+## 3. Create a key pair (SSH access)
 1. Open **EC2** → left menu **Network & Security → Key Pairs** → **Create key pair**.
 2. Fill in the form:
    - **Name**: `tuition-key`
@@ -46,7 +80,7 @@ Console labels change from time to time. If a label below differs slightly, choo
    icacls $key /grant:r "$($env:USERNAME):(R)"
    ```
 
-## 3. Launch the EC2 instance
+## 4. Launch the EC2 instance
 1. Open **EC2** → **Instances** → **Launch instances**.
 2. **Name and tags**: `tuition-ec2`.
 3. **Application and OS Images**: choose **Ubuntu**, then **Ubuntu Server 24.04 LTS (HVM), SSD Volume Type**, architecture **64-bit (x86)**.
@@ -64,7 +98,7 @@ Console labels change from time to time. If a label below differs slightly, choo
 7. **Configure storage**: `20` GiB, **gp3**.
 8. Click **Launch instance**, then **View all instances**. Wait until **Instance state** is *Running* and **Status check** shows *2/2 checks passed*.
 
-## 4. Attach an Elastic IP
+### Attach an Elastic IP
 A normal public IP changes when the instance stops. An Elastic IP stays the same, so the demo URL stays the same.
 1. **EC2** → **Network & Security → Elastic IPs** → **Allocate Elastic IP address**.
 2. Keep **Amazon's pool of IPv4 addresses** and click **Allocate**.
@@ -74,33 +108,15 @@ A normal public IP changes when the instance stops. An Elastic IP stays the same
 4. Click **Associate**.
 5. Write the address down. It is called `<EIP>` below. The app will be served at `http://<EIP>/`.
 
-## 5. Create the RDS database
-1. Open **Aurora and RDS** (search "RDS") → **Databases** → **Create database**.
-2. **Choose a database creation method**: **Full configuration** (called *Standard create* in older consoles).
-3. **Engine options**: **PostgreSQL**. For **Engine version**, pick the latest **PostgreSQL 16.x**.
-4. **Templates**: **Free tier** (or *Sandbox*). This selects a single-AZ deployment.
-5. **Settings**:
-   - **DB instance identifier**: `tuition-db`
-   - **Master username**: `tuition`
-   - **Credentials management**: **Self managed**
-   - **Master password**: a strong password made of letters and digits only. Store it in your password manager; it is entered only on the server in [§7](#7-configure-and-start-the-stack).
-6. **Instance configuration**: **Burstable classes** → `db.t4g.micro`.
-7. **Storage**:
-   - **Storage type**: gp3
-   - **Allocated storage**: `20` GiB
-   - Under **Storage autoscaling**, untick **Enable storage autoscaling**.
-8. **Connectivity**:
-   - **Compute resource**: **Connect to an EC2 compute resource**.
-   - **EC2 instance**: `tuition-ec2`. RDS then creates a pair of security groups that allow 5432 only from this instance.
-   - **Public access**: **No**.
-9. **Monitoring**: leave Performance Insights and Enhanced Monitoring off.
-10. **Additional configuration**:
-    - **Initial database name**: `tuition`. Without it, RDS creates no database and the migrations fail.
-    - **Backup retention period**: 1 day.
-    - Untick **Enable deletion protection** so the database can be removed at the end.
-11. Click **Create database**. If a pop-up offers add-ons, close it.
-12. Wait about 5–10 minutes until **Status** is *Available*.
-13. Open `tuition-db` → **Connectivity & security** and copy the **Endpoint**, for example `tuition-db.abc123xyz.eu-central-1.rds.amazonaws.com`. It is called `<RDS_ENDPOINT>` below.
+## 5. Allow the server to reach the database
+`tuition-rds-sg` must accept PostgreSQL traffic from the EC2 instance only.
+1. **EC2** → **Network & Security → Security Groups** → select `tuition-rds-sg` → **Inbound rules** tab → **Edit inbound rules**.
+2. Delete any existing rule. The console may have added one for your own IP.
+3. **Add rule**:
+   - **Type**: PostgreSQL (port 5432 is filled in)
+   - **Source**: Custom → start typing `tuition-ec2-sg` and pick it from the list.
+4. **Description**: `Postgres from tuition-ec2`.
+5. Click **Save rules**. The database is now reachable only from containers on `tuition-ec2`.
 
 ## 6. Connect to the server and install Docker
 1. Connect from your computer:
@@ -207,7 +223,7 @@ Approximate on-demand prices in `eu-central-1`:
    - Tick the acknowledgement.
 2. **EC2** → `tuition-ec2` → **Instance state → Terminate**.
 3. **Elastic IPs** → select the address → **Actions → Release Elastic IP addresses**.
-4. **Security groups**: delete `tuition-ec2-sg` and the two `ec2-rds-*` / `rds-ec2-*` groups that RDS created.
+4. **Security groups**: delete `tuition-rds-sg`, then `tuition-ec2-sg`.
 5. **Key pairs**: delete `tuition-key`.
 6. Check **Billing → Bills** the next day to confirm no resources are left.
 
@@ -215,9 +231,9 @@ Approximate on-demand prices in `eu-central-1`:
 
 | Symptom | Likely cause and fix |
 |---|---|
-| `ssh` asks for a password, or says *permissions are too open* | Wrong user (it is `ubuntu`), or the key file is readable by others (see [§2](#2-create-a-key-pair-ssh-access) step 5). |
+| `ssh` asks for a password, or says *permissions are too open* | Wrong user (it is `ubuntu`), or the key file is readable by others (see [§3](#3-create-a-key-pair-ssh-access) step 5). |
 | `ssh` times out | Your IP changed. Edit `tuition-ec2-sg` → SSH rule → **My IP**. |
-| `alembic upgrade` fails with *connection timed out* | The RDS security groups do not link to the instance. Set **Compute resource** again: RDS → `tuition-db` → **Actions → Set up EC2 connection**. |
+| `alembic upgrade` fails with *connection timed out* | `tuition-rds-sg` does not allow the instance. Check the inbound rule from [§5](#5-allow-the-server-to-reach-the-database): PostgreSQL, source `tuition-ec2-sg`. |
 | *database "tuition" does not exist* | The initial database name was left empty. Create it once: `docker run --rm -it postgres:16-alpine psql "host=<RDS_ENDPOINT> user=tuition dbname=postgres sslmode=require" -c 'CREATE DATABASE tuition;'` |
 | *no pg_hba.conf entry … no encryption* | `sslmode=require` is missing from `DATABASE_URL`. Run `bash scripts/deploy.sh env` again. |
 | The build stops with *killed* or out of memory | Swap is missing. Run `bash scripts/deploy.sh install` again, then `up`. |
