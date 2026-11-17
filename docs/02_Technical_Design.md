@@ -216,6 +216,8 @@ Swagger UI: `/api/v1/docs`. OpenAPI JSON: `/api/v1/openapi.json`. The exported c
 ```
 Amounts are serialized as strings, so no float rounding can occur.
 
+Query errors: unknown student → `404 STUDENT_NOT_FOUND`; a `term` the student has no tuition for → `404 TUITION_NOT_FOUND`; malformed `term` → `422 VALIDATION_ERROR`. Terms are listed chronologically (`2026-FALL` before `2027-SPRING`). Amounts in different currencies are never added together: an overall query over mixed currencies returns `409 MIXED_CURRENCIES` (query one term instead).
+
 **Error body (service)**: `{"error": {"code": "DUPLICATE_TRANSACTION", "message": "...", "details": {...}}}`.
 **Error body (gateway)**: Kong's native `{"message": "API rate limit exceeded"}` / `{"message": "Unauthorized"}`. This is the documented sample gateway error.
 
