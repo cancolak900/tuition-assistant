@@ -1,5 +1,7 @@
 [run]
 source = app, scripts
+# Manual CLI client for local checks; exercised by hand, not by unit tests.
+omit = scripts/query_client.py
 
 [report]
 show_missing = true
