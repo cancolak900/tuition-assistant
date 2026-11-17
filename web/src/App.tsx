@@ -1,14 +1,59 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { RequireAuth } from "./auth/RequireAuth";
+import { homeFor } from "./auth/session";
+import { Login } from "./pages/Login";
+import { Placeholder } from "./pages/Placeholder";
 import { Styleguide } from "./pages/Styleguide";
 
-// Screens (login, chat, admin) are added one by one; the style guide renders the Figma design system.
+function Home() {
+  const { user } = useAuth();
+  return <Navigate to={user ? homeFor(user.role) : "/login"} replace />;
+}
+
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/chat"
+        element={
+          <RequireAuth roles={["student"]}>
+            <Placeholder title="Assistant">The chat screen is the next step.</Placeholder>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <RequireAuth roles={["admin"]}>
+            <Placeholder wide title="Tuition administration">The admin screen comes after the chat screen.</Placeholder>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/account"
+        element={
+          <RequireAuth roles={["bank"]}>
+            <Placeholder title="Bank account">
+              The bank role uses the Banking API (tuition query and payment) directly; it has no web screen.
+              The endpoints are listed in the API documentation at /api/v1/docs.
+            </Placeholder>
+          </RequireAuth>
+        }
+      />
+      <Route path="/styleguide" element={<Styleguide />} />
+      <Route path="*" element={<Home />} />
+    </Routes>
+  );
+}
+
 export function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/styleguide" element={<Styleguide />} />
-        <Route path="*" element={<Navigate to="/styleguide" replace />} />
-      </Routes>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </BrowserRouter>
   );
 }
