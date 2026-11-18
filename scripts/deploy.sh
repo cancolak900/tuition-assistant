@@ -64,6 +64,7 @@ write_env() {
   read -r -p "RDS database name [tuition]: " db_name
   read -r -s -p "RDS master password (hidden): " db_pass; echo
   read -r -s -p "Gemini API key (hidden): " gemini_key; echo
+  read -r -p "Public domain for HTTPS, e.g. tuition.example.dev (empty = serve by IP over HTTP): " public_domain
   db_user="${db_user:-tuition}"
   db_name="${db_name:-tuition}"
   [ -n "$db_host" ] && [ -n "$db_pass" ] && [ -n "$gemini_key" ] || die "endpoint, password and Gemini key are required"
@@ -82,6 +83,7 @@ JWT_EXPIRES_MIN=60
 GEMINI_API_KEY=${gemini_key}
 GEMINI_MODEL=gemini-flash-latest
 GEMINI_FALLBACK_MODEL=gemini-flash-lite-latest,gemini-2.5-flash-lite
+PUBLIC_DOMAIN=${public_domain}
 EOF
   chmod 600 .env
   log "Wrote .env (mode 600). Next: bash scripts/deploy.sh up --seed"
@@ -115,9 +117,11 @@ wait_healthy() {
   for i in $(seq 1 60); do
     if curl -fsS --max-time 3 http://localhost/api/v1/health >/dev/null 2>&1; then
       "${COMPOSE[@]}" ps
-      local ip
+      local ip domain
       ip="$(curl -fsS --max-time 2 https://checkip.amazonaws.com 2>/dev/null || echo '<elastic-ip>')"
-      log "Up: http://${ip}/  (smoke test: bash scripts/smoke.sh http://${ip})"
+      domain="$(grep -E '^PUBLIC_DOMAIN=' .env | tail -1 | cut -d= -f2- || true)"
+      [ -n "$domain" ] && log "Up: https://${domain}/  (smoke test: bash scripts/smoke.sh https://${domain})"
+      log "Up: http://${ip}/  (by IP, plain HTTP)"
       return 0
     fi
     sleep 5

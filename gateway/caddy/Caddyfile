@@ -1,0 +1,12 @@
+# TLS edge in front of Kong (docker-compose.prod.yml only).
+# PUBLIC_DOMAIN gets a Let's Encrypt certificate, and plain HTTP to it is redirected to HTTPS.
+# Requests by IP address (or any other host) are still served over plain HTTP as a fallback.
+
+{$PUBLIC_DOMAIN:localhost} {
+	encode zstd gzip
+	reverse_proxy kong:8000
+}
+
+http:// {
+	reverse_proxy kong:8000
+}
