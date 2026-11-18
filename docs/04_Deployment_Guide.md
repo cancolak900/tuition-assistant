@@ -3,9 +3,9 @@
 This guide deploys the full stack to AWS, step by step in the AWS Console. The architecture and sizing are in [02_Technical_Design.md §11](02_Technical_Design.md#11-deployment-aws).
 
 ```
-Internet ──80──▶ EC2 (Ubuntu 24.04, Elastic IP)
-                 └─ docker compose (docker-compose.prod.yml)
-                    Kong :80 ─▶ web · tuition-api · agent ─▶ mcp-server
+Internet ──443/80──▶ EC2 (Ubuntu 24.04, Elastic IP, DNS name e.g. tuition.cancolak.dev)
+                    └─ docker compose (docker-compose.prod.yml)
+                       Caddy :443/:80 (Let's Encrypt TLS) ─▶ Kong :8000 ─▶ web · tuition-api · agent ─▶ mcp-server
                                       │
                                       └──5432 (TLS)──▶ RDS PostgreSQL 16 (private)
 ```
@@ -15,7 +15,8 @@ Internet ──80──▶ EC2 (Ubuntu 24.04, Elastic IP)
 | Region | **Europe (Frankfurt) `eu-central-1`**. Any region works; use the same one for every resource. |
 | EC2 | `t3.small` (2 vCPU, 2 GB), Ubuntu Server 24.04 LTS, 20 GB gp3 |
 | RDS | PostgreSQL 16, `db.t4g.micro`, 20 GB gp2, single-AZ, no public access |
-| Network | Default VPC. `tuition-ec2-sg` allows 80 from anywhere and 22 from your IP. `tuition-rds-sg` allows 5432 only from `tuition-ec2-sg`. |
+| Network | Default VPC. `tuition-ec2-sg` allows 80 and 443 from anywhere and 22 from your IP. `tuition-rds-sg` allows 5432 only from `tuition-ec2-sg`. |
+| Domain (optional) | An A record for a domain you own (here `tuition.cancolak.dev`, DNS at Cloudflare) pointing at the Elastic IP. Caddy then serves HTTPS with a free Let's Encrypt certificate. Without a domain the app is served over plain HTTP by IP. |
 | Cost | About $1/day while running (see [§9](#9-cost-and-teardown)) |
 
 Console labels change from time to time. If a label below differs slightly, choose the option with the same meaning.
@@ -94,6 +95,7 @@ Console labels change from time to time. If a label below differs slightly, choo
      - **Description**: `Kong HTTP and admin SSH`
    - Inbound rule 1: **Type** SSH, **Source type** **My IP**.
    - **Add security group rule**: **Type** HTTP, **Source type** **Anywhere** (`0.0.0.0/0`).
+   - **Add security group rule**: **Type** HTTPS, **Source type** **Anywhere** (`0.0.0.0/0`). Needed only with a domain (HTTPS).
    - Add no other rules. Ports 8000, 8100, 8200 and 5432 must stay closed. The smoke test checks this.
 7. **Configure storage**: `20` GiB, **gp3**.
 8. Click **Launch instance**, then **View all instances**. Wait until **Instance state** is *Running* and **Status check** shows *2/2 checks passed*.
@@ -107,6 +109,18 @@ A normal public IP changes when the instance stops. An Elastic IP stays the same
    - **Instance**: `tuition-ec2`
 4. Click **Associate**.
 5. Write the address down. It is called `<EIP>` below. The app will be served at `http://<EIP>/`.
+
+### Point a domain at the server (optional, enables HTTPS)
+Browsers show *Not secure* for a site served by IP over plain HTTP. A certificate needs a domain name, so:
+1. In your DNS provider, add an **A** record. With Cloudflare: **DNS → Records → Add record**, then:
+   - **Type** A
+   - **Name** `tuition`
+   - **IPv4 address** `<EIP>`
+   - **Proxy status** **DNS only** (grey cloud), so the certificate request reaches the server directly.
+2. Check that the name resolves: `nslookup tuition.<your-domain>` returns `<EIP>`.
+3. Enter the name when `deploy.sh env` asks for the public domain ([§7](#7-configure-and-start-the-stack)), or add `PUBLIC_DOMAIN=tuition.<your-domain>` to `.env` on the server.
+
+Caddy obtains the certificate on first start and renews it automatically. Plain HTTP to the domain is redirected to HTTPS, and `http://<EIP>/` keeps working as a fallback. A `.dev` domain only works over HTTPS (browsers enforce it).
 
 ## 5. Allow the server to reach the database
 `tuition-rds-sg` must accept PostgreSQL traffic from the EC2 instance only.
@@ -146,6 +160,7 @@ A normal public IP changes when the instance stops. An Elastic IP stays the same
    - **RDS endpoint**: `<RDS_ENDPOINT>`
    - **Username** and **database name**: press Enter to keep the default `tuition`.
    - **Password** and **Gemini key**: typed hidden.
+   - **Public domain**: `tuition.<your-domain>` from [§4](#point-a-domain-at-the-server-optional-enables-https), or Enter to serve by IP over HTTP.
 
    The script then:
    - writes `.env` with mode 600,
@@ -158,7 +173,7 @@ A normal public IP changes when the instance stops. An Elastic IP stays the same
    ```bash
    bash scripts/deploy.sh up --seed
    ```
-   The first build takes about 5–10 minutes on a `t3.small`. The script ends with `Up: http://<EIP>/`.
+   The first build takes about 5–10 minutes on a `t3.small`. The script ends with `Up: https://<domain>/` (and `Up: http://<EIP>/`).
 4. Check the containers:
    ```bash
    bash scripts/deploy.sh status
@@ -170,17 +185,17 @@ Run these from your own computer, not from the server, so the checks go over the
 
 1. Smoke test of the gateway: health, login, JWT, rate limit, and closed backend ports.
    ```bash
-   bash scripts/smoke.sh http://<EIP> | tee docs/evidence/smoke-aws.log
+   bash scripts/smoke.sh https://<domain> | tee docs/evidence/smoke-aws.log
    ```
 2. End-to-end agent scenarios A1–A6, with real Gemini:
    ```bash
-   python scripts/scenarios.py --base-url http://<EIP> --yes | tee docs/evidence/scenarios-aws.log
+   python scripts/scenarios.py --base-url https://<domain> --yes | tee docs/evidence/scenarios-aws.log
    ```
 3. In a browser:
-   - Open `http://<EIP>/`.
+   - Open `https://<domain>/` (or `http://<EIP>/` without a domain).
    - Sign in as `s1001` / `Pass1001!` and ask "What is my balance?".
    - Sign in as `admin` / `Admin123!` and open the admin screen.
-4. Swagger UI: `http://<EIP>/api/v1/docs`.
+4. Swagger UI: `https://<domain>/api/v1/docs`.
 5. Screenshots to keep in `docs/evidence/`:
    - EC2 instance list (running, Elastic IP)
    - RDS database (Available, Public access *No*)
@@ -238,4 +253,6 @@ Approximate on-demand prices in `eu-central-1`:
 | *no pg_hba.conf entry … no encryption* | `sslmode=require` is missing from `DATABASE_URL`. Run `bash scripts/deploy.sh env` again. |
 | The build stops with *killed* or out of memory | Swap is missing. Run `bash scripts/deploy.sh install` again, then `up`. |
 | The browser shows nothing on `http://<EIP>/` | Check the HTTP rule in `tuition-ec2-sg` and run `bash scripts/deploy.sh status`. |
+| HTTPS does not load, or the browser warns about the certificate | Check the HTTPS rule in `tuition-ec2-sg`, that the A record points at `<EIP>` with the proxy off, and `bash scripts/deploy.sh logs caddy` for *certificate obtained successfully*. |
+| A Python client reports *certificate has expired* | An old copy of ISRG Root X2 in the OS store. The Caddyfile uses RSA certificates (chain to ISRG Root X1) to avoid it; if a cert was issued before that change, delete `/data/caddy/certificates` in the caddy container and restart it. |
 | The agent replies with an LLM error | Check `GEMINI_API_KEY` in `.env`, and look for Gemini quota errors in `bash scripts/deploy.sh logs agent`. |
