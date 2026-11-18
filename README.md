@@ -331,8 +331,14 @@ The scenarios change the demo data (A4 pays $500 for S1001). Run `bash scripts/d
 
 All files are in [docs/evidence](docs/evidence).
 
+<p>
+  <img src="docs/evidence/live-a3-combined.jpg" alt="Combined MCP + REST answer with tool trace" width="49%">
+  <img src="docs/evidence/live-a4-payment-confirmed.jpg" alt="Confirmed simulated payment" width="49%">
+</p>
+
 | What | File |
 |---|---|
+| **Live system screenshots** (https://tuition.cancolak.dev, tool trace open) | A1 MCP-only: [live-a1-mcp-only.jpg](docs/evidence/live-a1-mcp-only.jpg) · A2 API-only: [live-a2-rest-only.jpg](docs/evidence/live-a2-rest-only.jpg) · A3 combined: [live-a3-combined.jpg](docs/evidence/live-a3-combined.jpg) · A4 confirmation card: [live-a4-confirmation-card.jpg](docs/evidence/live-a4-confirmation-card.jpg) → confirmed payment: [live-a4-payment-confirmed.jpg](docs/evidence/live-a4-payment-confirmed.jpg) · A5 refusal: [live-a5-refusal.jpg](docs/evidence/live-a5-refusal.jpg) |
 | Unit tests (green CI run, all suites) | [unit-tests-ci.log](docs/evidence/unit-tests-ci.log) |
 | Agent scenarios on AWS: MCP-only, API-only, combined, confirmed payment, refusal, 429 (tool traces included) | [scenarios-aws.log](docs/evidence/scenarios-aws.log) · local run: [scenarios-local.log](docs/evidence/scenarios-local.log) |
 | Gateway smoke test on AWS (protected route 401/200, 403, 429, closed ports) | [smoke-aws.log](docs/evidence/smoke-aws.log) · local: [smoke-local.log](docs/evidence/smoke-local.log) |
