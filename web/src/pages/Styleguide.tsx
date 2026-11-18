@@ -39,9 +39,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export function Styleguide() {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-dvh">
       <AppHeader right={<Avatar initials="S1" />} />
-      <main className="mx-auto flex max-w-[1184px] flex-col gap-2xl px-xl py-2xl">
+      <main className="mx-auto flex max-w-[1184px] flex-col gap-2xl px-lg sm:px-xl py-2xl">
         <div>
           <h1 className="type-display">Design system</h1>
           <p className="type-body-sm text-text-on-dark-muted">{tokens.source}</p>

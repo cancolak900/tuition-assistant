@@ -69,11 +69,11 @@ export function AddTuitionForm({ onSaved }: { onSaved: (result: AddTuitionRespon
   return (
     <Panel title="Add or update tuition">
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-lg">
-        <div className="grid grid-cols-2 gap-md">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-md">
           <TextField label="Student No" placeholder="S1004" value={values.studentNo} onChange={set("studentNo")} error={errors.studentNo} />
           <TextField label="Term" placeholder="2026-FALL" value={values.term} onChange={set("term")} error={errors.term} />
         </div>
-        <div className="grid grid-cols-[1fr_100px] gap-md">
+        <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-md">
           <TextField label="Amount" placeholder="7,500.00" inputMode="decimal" value={values.amount} onChange={set("amount")} error={errors.amount} />
           <TextField label="Currency" placeholder="USD" maxLength={3} value={values.currency} onChange={set("currency")} error={errors.currency} />
         </div>

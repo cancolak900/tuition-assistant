@@ -72,13 +72,25 @@
 @utility type-table-head { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; }
 
 @layer base {
-  html { color-scheme: dark; }
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation; /* no double-tap zoom on buttons */
+  }
   body {
     margin: 0;
+    overflow-x: clip; /* nothing may widen the page sideways on a phone */
+    overscroll-behavior-y: none; /* no rubber-band bounce of the whole app */
     background: var(--color-bg-page);
     color: var(--color-text-on-dark);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+  /* iOS Safari zooms into any field under 16px when it gets focus; phones get 16px fields instead. */
+  @media (max-width: 639px) {
+    input, textarea, select { font-size: 16px !important; }
   }
   :focus-visible { outline: 2px solid var(--color-accent-primary); outline-offset: 2px; }
   ::selection { background: color-mix(in srgb, var(--color-accent-primary) 35%, transparent); }

@@ -7,7 +7,7 @@ export function Chip({ className, type = "button", ...props }: ButtonHTMLAttribu
     <button
       type={type}
       className={cn(
-        "inline-flex h-[30px] items-center rounded-sm border border-border-dark-strong bg-bg-elevated px-md",
+        "inline-flex h-[30px] items-center whitespace-nowrap rounded-sm border border-border-dark-strong bg-bg-elevated px-md",
         "type-caption text-text-on-dark transition hover:border-accent-primary",
         "cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
         className,

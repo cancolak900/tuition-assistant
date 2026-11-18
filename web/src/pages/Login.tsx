@@ -55,9 +55,9 @@ export function Login() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-dvh flex-col">
       <AppHeader />
-      <main className="flex flex-1 items-start justify-center px-xl pt-[clamp(48px,20vh,204px)] pb-2xl">
+      <main className="flex flex-1 items-start justify-center px-lg sm:px-xl pt-[clamp(48px,20vh,204px)] pb-2xl">
         <form onSubmit={onSubmit} noValidate className="flex w-full max-w-form flex-col gap-xl" aria-labelledby="signin-title">
           <div className="flex flex-col gap-sm">
             <h1 id="signin-title" className="type-display">Sign in</h1>

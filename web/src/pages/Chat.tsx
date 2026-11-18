@@ -11,6 +11,7 @@ import { AppHeader, Chip, SendButton, cn } from "../components/ui";
 
 const SUGGESTIONS = ["What is my balance?", "When is the Fall payment deadline?", "Installment rules", "Pay my Fall balance"];
 const MAX_CHARS = 2000;
+const coarsePointer = typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
 
 function Time({ at, align = "left" }: { at: string; align?: "left" | "right" }) {
   return <time dateTime={at} className={cn("block pt-xs type-micro text-text-placeholder", align === "right" && "pr-xs text-right")}>{clock(at)}</time>;
@@ -114,10 +115,10 @@ export function Chat() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-dvh flex-col">
       <AppHeader right={<UserMenu />} />
 
-      <main className="mx-auto flex w-full max-w-chat flex-1 flex-col px-xl pt-2xl pb-xl">
+      <main className="mx-auto flex w-full max-w-chat flex-1 flex-col px-lg sm:px-xl pt-2xl pb-xl">
         {items.length === 0 ? (
           <div className="flex flex-1 flex-col justify-center gap-sm pb-[10vh]">
             <h1 className="type-display">How can I help{user?.studentNo ? `, ${user.studentNo}` : ""}?</h1>
@@ -135,9 +136,10 @@ export function Chat() {
         )}
       </main>
 
-      <div className="sticky bottom-0 bg-gradient-to-t from-bg-page from-70% to-transparent pt-lg pb-xl">
-        <form onSubmit={onSubmit} className="mx-auto flex w-full max-w-chat flex-col gap-xs px-xl">
-          <div className="flex flex-wrap gap-sm pb-xs">
+      <div className="sticky bottom-0 bg-gradient-to-t from-bg-page from-70% to-transparent pt-lg pb-[max(16px,env(safe-area-inset-bottom))] sm:pb-xl">
+        <form onSubmit={onSubmit} className="mx-auto flex w-full max-w-chat flex-col gap-xs px-lg sm:px-xl">
+          {/* One swipeable row on phones (three wrapped rows would cover a third of the screen), wrapped on wider screens. */}
+          <div className="-mx-lg flex gap-sm overflow-x-auto overscroll-x-contain px-lg pb-xs [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>*]:shrink-0">
             {openCard && (
               <Chip onClick={() => decide(openCard.id, "cancel")} disabled={busy}>
                 Cancel payment
@@ -159,12 +161,12 @@ export function Chat() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={onKeyDown}
-              autoFocus
+              autoFocus={!coarsePointer} // on a phone this would open the keyboard over the greeting
               className="max-h-40 min-h-8 flex-1 resize-none bg-transparent py-[6px] type-body-sm text-text-on-dark outline-none placeholder:text-text-placeholder field-sizing-content"
             />
             <SendButton disabled={busy || !draft.trim()} />
           </div>
-          <p className="px-xs type-micro text-text-placeholder">The assistant answers from the university policy and your own records. Check payments on the card before confirming.</p>
+          <p className="hidden px-xs type-micro text-text-placeholder sm:block">The assistant answers from the university policy and your own records. Check payments on the card before confirming.</p>
         </form>
       </div>
     </div>

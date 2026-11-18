@@ -58,6 +58,22 @@ describe("admin screen", () => {
     expect(unpaidCalls(calls).at(-1)?.headers.Authorization).toMatch(/^Bearer /);
   });
 
+  it("shows a compact list instead of the wide table on a phone", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(max-width: 639px)",
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+    installFakeApi({ "GET /api/v1/admin/tuition/unpaid": unpaidRoute(24) });
+    renderAdmin();
+    const list = await table().findByRole("list", { name: "Unpaid tuition" });
+    expect(table().queryByRole("table")).toBeNull();
+    const first = within(list).getAllByRole("listitem")[0];
+    expect(first.textContent).toContain("S1004");
+    expect(first.textContent).toContain("Paid $0.00 of $2,500.00");
+    expect(table().getByRole("button", { name: "Prev" })).toBeTruthy();
+  });
+
   it("changes the term and goes back to page 1", async () => {
     const calls = installFakeApi({ "GET /api/v1/admin/tuition/unpaid": unpaidRoute(24) });
     renderAdmin();

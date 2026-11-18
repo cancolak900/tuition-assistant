@@ -12,7 +12,7 @@ export function TextField({ label, error, invalid, className, id, ...props }: Te
   const autoId = useId();
   const inputId = id ?? autoId;
   return (
-    <div className={cn("flex flex-col gap-[6px]", className)}>
+    <div className={cn("flex min-w-0 flex-col gap-[6px]", className)}>
       <label htmlFor={inputId} className="type-caption text-text-on-dark-muted">
         {label}
       </label>
@@ -21,7 +21,7 @@ export function TextField({ label, error, invalid, className, id, ...props }: Te
         aria-invalid={error || invalid ? true : undefined}
         aria-describedby={error ? `${inputId}-error` : undefined}
         className={cn(
-          "h-11 rounded-lg border bg-bg-surface px-lg type-body-sm text-text-on-dark outline-none transition",
+          "h-11 w-full min-w-0 rounded-lg border bg-bg-surface px-lg type-body-sm text-text-on-dark outline-none transition",
           "placeholder:text-text-placeholder",
           error || invalid ? "border-accent-danger" : "border-border-dark focus:border-accent-primary",
         )}

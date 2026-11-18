@@ -31,7 +31,7 @@ export function ToolTrace({ steps, defaultOpen = false }: { steps: TraceStep[]; 
                 type="button"
                 aria-expanded={expanded === s.step}
                 onClick={() => setExpanded(expanded === s.step ? null : s.step)}
-                className="w-full cursor-pointer text-left type-mono text-text-on-dark-muted hover:text-text-on-dark"
+                className="w-full cursor-pointer text-left [overflow-wrap:anywhere] type-mono text-text-on-dark-muted hover:text-text-on-dark"
                 title="Show the full result"
               >
                 <span className="type-mono-bold text-accent-info">{s.step}</span>{" "}

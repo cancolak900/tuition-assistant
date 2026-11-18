@@ -12,9 +12,9 @@ export function Admin() {
   const refresh = () => setRefreshKey((k) => k + 1);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-dvh flex-col">
       <AppHeader right={<UserMenu />} />
-      <main className="mx-auto flex w-full max-w-[1184px] flex-col gap-xl px-xl py-2xl">
+      <main className="mx-auto flex w-full max-w-[1184px] flex-col gap-xl px-lg sm:px-xl py-2xl">
         <div className="flex flex-col gap-xs">
           <h1 className="type-heading">Tuition administration</h1>
           <p className="type-body-sm text-text-on-dark-muted">Create or update tuition records and track unpaid balances.</p>
