@@ -83,7 +83,7 @@ Console labels change from time to time. If a label below differs slightly, choo
 ## 4. Launch the EC2 instance
 1. Open **EC2** → **Instances** → **Launch instances**.
 2. **Name and tags**: `tuition-ec2`.
-3. **Application and OS Images**: choose **Ubuntu**, then **Ubuntu Server 24.04 LTS (HVM), SSD Volume Type**, architecture **64-bit (x86)**.
+3. **Application and OS Images**: choose **Ubuntu**. The default image may be a newer release (26.04); open the **Amazon Machine Image (AMI)** list, pick **Ubuntu Server 24.04 LTS (HVM), SSD Volume Type**, and confirm the dialog that says some settings will be reset. Architecture: **64-bit (x86)**.
 4. **Instance type**: `t3.small`.
 5. **Key pair**: `tuition-key`.
 6. **Network settings** → **Edit**:
@@ -111,7 +111,7 @@ A normal public IP changes when the instance stops. An Elastic IP stays the same
 ## 5. Allow the server to reach the database
 `tuition-rds-sg` must accept PostgreSQL traffic from the EC2 instance only.
 1. **EC2** → **Network & Security → Security Groups** → select `tuition-rds-sg` → **Inbound rules** tab → **Edit inbound rules**.
-2. Delete any existing rule. The console may have added one for your own IP.
+2. Delete any existing rule. The console adds one for your own IP when the group is created; an IP rule cannot be switched to a security-group source, so delete it rather than editing it.
 3. **Add rule**:
    - **Type**: PostgreSQL (port 5432 is filled in)
    - **Source**: Custom → start typing `tuition-ec2-sg` and pick it from the list.

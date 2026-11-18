@@ -1,0 +1,19 @@
+# EC2 host check over SSH (2026-11-18T00:23Z): OS, size, and RDS reachability from the instance
++ lsb_release -ds
+Ubuntu 24.04.5 LTS
++ nproc
+2
++ free -h
++ head -2
+               total        used        free      shared  buff/cache   available
+Mem:           1.9Gi       395Mi       1.2Gi       2.7Mi       418Mi       1.5Gi
++ df -h /
++ tail -1
+/dev/root        19G  2.1G   17G  11% /
+172.31.41.235   tuition-db.cd4y2ggsycd4.eu-central-1.rds.amazonaws.com
+RDS 5432 reachable from EC2
++ getent hosts tuition-db.cd4y2ggsycd4.eu-central-1.rds.amazonaws.com
++ timeout 5 bash -c '</dev/tcp/tuition-db.cd4y2ggsycd4.eu-central-1.rds.amazonaws.com/5432'
++ echo 'RDS 5432 reachable from EC2'
+# From outside AWS (this laptop): the RDS name resolves to a private VPC address, so it is unreachable from the internet
+172.31.41.235
