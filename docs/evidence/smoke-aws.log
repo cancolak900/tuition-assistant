@@ -1,0 +1,30 @@
+Smoke test against http://18.153.247.247  (2026-11-18 00:31:14 UTC)
+
+E-01 / E-02  Protected route through the gateway
+  PASS  E-01  GET /banking/tuition/S1001 without a token              expected 401  got 401  {"message":"Unauthorized"}
+  PASS  login POST /auth/login as s1001                               expected 200  got 200  
+  PASS  E-02  GET /banking/tuition/S1001 with a token                 expected 200  got 200  balance=6000.00
+  PASS  extra same route with a forged token (bad signature)          expected 401  got 401  {"message":"Invalid signature"}
+
+E-03 / E-04  Mobile query: 3 calls per student per day, keyed by student number
+  PASS  E-03  GET /mobile/tuition/S1004 after the daily quota (3/day) expected 429  got 429  (call 4 today) { "message":"Daily limit reached: at most 3 tuition queries per student per day.", "request_id":"5f6a5855c62a0
+  PASS  E-04  GET /mobile/tuition/S1030 (separate counter)            expected 200  got 200  remaining today=2
+  PASS  extra spoofed X-RateLimit-Student header cannot bypass the limit expected 429  got 429  
+
+E-05  Backend services are not reachable directly
+  PASS  E-05  direct connection to 18.153.247.247:8000                expected refused got refused 
+  PASS  E-05  direct connection to 18.153.247.247:8100                expected refused got refused 
+  PASS  E-05  direct connection to 18.153.247.247:8200                expected refused got refused 
+  PASS  E-05  direct connection to 18.153.247.247:5432                expected refused got refused 
+
+E-06  Documentation and correlation id through the gateway
+  PASS  E-06  GET /api/v1/docs (Swagger UI)                           expected 200  got 200  
+  PASS  extra GET /api/v1/openapi.json                                expected 200  got 200  
+  PASS  extra X-Request-ID header returned by the gateway             expected yes  got yes  c7e9a3c6-cf56-4bac-97bd-fd2bd2ce5b03
+
+Web UI through the gateway
+  PASS  extra GET / (web UI served by Kong)                           expected 200  got 200  text/html; charset=UTF-8
+  PASS  extra GET /chat (client-side route falls back to the app)     expected 200  got 200  
+  PASS  extra unknown API path is a JSON 404, not the web page        expected 404  got 404  {"error":{"code":"NOT_FOUND","message":"Not Found","details":null}}
+
+Result: 17 passed, 0 failed
