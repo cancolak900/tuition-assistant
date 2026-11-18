@@ -289,7 +289,7 @@ Unit tests cover **every REST API operation** with success and failure/edge case
 
 | Suite | Tests | Coverage | Run |
 |---|---|---|---|
-| Tuition API | 118 | 99% | `cd services/tuition-api && pip install -r requirements.txt -r requirements-dev.txt && pytest -v --cov` (needs Docker for testcontainers) |
+| Tuition API | 121 | 99% | `cd services/tuition-api && pip install -r requirements.txt -r requirements-dev.txt && pytest -v --cov` (needs Docker for testcontainers) |
 | MCP server | 30 | 95% | `cd services/mcp-server && pip install -r requirements.txt -r requirements-dev.txt && pytest -v --cov` |
 | AI agent | 130 | 99% | `cd services/agent && pip install -r requirements.txt -r requirements-dev.txt && pytest -v --cov` |
 | Web UI | 84 | – | `cd web && npm ci && npm test` |
