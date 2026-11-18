@@ -196,11 +196,23 @@ describe("chat screen", () => {
     const scrollTo = vi.fn();
     vi.stubGlobal("scrollTo", scrollTo);
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => (cb(0), 1));
-    installFakeApi({ "POST /api/v1/agent/chat": () => ({ status: 200, body: { sessionId: "s1", reply: "answer", trace: [], pendingAction: null } }) });
+    // The reply is held back until the test releases it, so "after sending" and "when the answer
+    // arrives" are two separate renders (an instant reply can be batched into one).
+    let answer!: (v: unknown) => void;
+    installFakeApi({
+      "POST /api/v1/agent/chat": () =>
+        new Promise((resolve) => {
+          answer = () => resolve({ status: 200, body: { sessionId: "s1", reply: "answer", trace: [], pendingAction: null } });
+        }),
+    });
     renderChat();
     type("hello");
+    await waitFor(() => expect(answer).toBeDefined());
+    await waitFor(() => expect(scrollTo).toHaveBeenCalled()); // own message
+    const callsAfterSend = scrollTo.mock.calls.length;
+    answer(null);
     await screen.findByText("answer");
-    expect(scrollTo.mock.calls.length).toBeGreaterThanOrEqual(2); // own message, then the reply
+    await waitFor(() => expect(scrollTo.mock.calls.length).toBeGreaterThan(callsAfterSend)); // the reply
     expect(scrollTo).toHaveBeenLastCalledWith({ top: document.documentElement.scrollHeight });
   });
 
