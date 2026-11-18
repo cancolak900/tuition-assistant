@@ -130,6 +130,8 @@ tuition-assistant/              (git repo root)
 
 ## 4. Data model
 
+Rendered diagram: [er-diagram.png](er-diagram.png) (generated from the Mermaid source below).
+
 ```mermaid
 erDiagram
     STUDENTS ||--o{ TUITIONS : has
@@ -189,7 +191,7 @@ Plus about 25 extra students without logins, so the unpaid list has more than on
 ## 5. REST API contract (v1)
 
 Base (public, through Kong): `http://<GATEWAY_HOST>/api/v1`.
-Swagger UI: `/api/v1/docs`. OpenAPI JSON: `/api/v1/openapi.json`. The exported copy is in `docs/openapi.json`.
+Swagger UI: `/api/v1/docs`. OpenAPI JSON: `/api/v1/openapi.json`. The exported copy is in [`docs/openapi.json`](openapi.json) (taken from the AWS deployment).
 
 | # | Method & path | Auth (role) | Request | 2xx response | Errors |
 |---|---|---|---|---|---|
@@ -266,6 +268,8 @@ DB-less `kong.yml.template` (Kong 3.9). At container start the entrypoint inject
 ---
 
 ## 8. MCP server design
+
+The tool schema as the server advertises it (`tools/list`, input and output JSON Schema) and one example call are exported to [mcp-tool-schema.json](mcp-tool-schema.json).
 
 **Chunking** (`chunker.py`): parse the markdown and create one chunk per `###` section (`2.1`, `3.2`, …). A `##` section without subsections (e.g. `1. Scope`) becomes one chunk of its own. Each chunk has the fields `{id, section, heading, parent_heading, text, document, documentId}`.
 

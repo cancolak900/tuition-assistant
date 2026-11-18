@@ -1,0 +1,113 @@
+{
+  "server": {
+    "name": "tuition-policies",
+    "version": "1.30.0",
+    "protocolVersion": "2025-11-25"
+  },
+  "transport": "streamable-http (POST /mcp), also stdio",
+  "tools": [
+    {
+      "name": "search_tuition_policies",
+      "description": "Search the University Tuition Policies (UNI-TUITION-2026-01) for deadlines, installments,\n    late fees, scholarships, refunds and banking/payment rules.\n\n    Returns the best matching excerpts with their section number (e.g. \"3.2\") and heading, so the\n    answer can cite \"§3.2\". Not a source of student balances or payment status.\n\n    The document is in English: write the query as short English keywords, even when the student\n    writes in another language (e.g. \"fall installment due dates\", not \"güz taksit\").\n\n    Args:\n        query: English keywords for the policy question, e.g. \"installment eligibility\".\n        top_k: how many sections to return (1-10, default 3).\n    ",
+      "inputSchema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "top_k": {
+            "default": 3,
+            "title": "Top K",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_tuition_policiesArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "$defs": {
+          "PolicyMatch": {
+            "properties": {
+              "section": {
+                "description": "Section number to cite, e.g. \"3.2\"",
+                "title": "Section",
+                "type": "string"
+              },
+              "heading": {
+                "description": "Section heading",
+                "title": "Heading",
+                "type": "string"
+              },
+              "text": {
+                "description": "Full text of the section",
+                "title": "Text",
+                "type": "string"
+              },
+              "score": {
+                "description": "BM25 relevance score (higher is better, always > 0)",
+                "title": "Score",
+                "type": "number"
+              }
+            },
+            "required": [
+              "section",
+              "heading",
+              "text",
+              "score"
+            ],
+            "title": "PolicyMatch",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "document": {
+            "description": "Source file name",
+            "title": "Document",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Policy document id, e.g. UNI-TUITION-2026-01",
+            "title": "Documentid",
+            "type": "string"
+          },
+          "matches": {
+            "description": "Best sections first; empty when nothing relevant was found",
+            "items": {
+              "$ref": "#/$defs/PolicyMatch"
+            },
+            "title": "Matches",
+            "type": "array"
+          }
+        },
+        "required": [
+          "document",
+          "documentId",
+          "matches"
+        ],
+        "title": "PolicySearchResult",
+        "type": "object"
+      }
+    }
+  ],
+  "exampleCall": {
+    "arguments": {
+      "query": "payment deadline fall",
+      "top_k": 1
+    },
+    "result": {
+      "document": "University_Tuition_Policies.md",
+      "documentId": "UNI-TUITION-2026-01",
+      "matches": [
+        {
+          "section": "2.1",
+          "heading": "Fall term",
+          "text": "The payment deadline for the Fall 2026 term is September 30, 2026. A student should settle the outstanding balance or have an approved installment arrangement by that date.",
+          "score": 6.049
+        }
+      ]
+    }
+  }
+}

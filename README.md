@@ -11,6 +11,7 @@ An AI agent that answers tuition questions by combining a university policy docu
 - [Technical design](docs/02_Technical_Design.md)
 - [Test plan](docs/03_Test_Plan.md)
 - [AWS deployment guide](docs/04_Deployment_Guide.md)
+- [ER diagram](docs/er-diagram.png) · [OpenAPI spec](docs/openapi.json) · [MCP tool schema](docs/mcp-tool-schema.json)
 - [Tuition policy document indexed by the MCP server](services/mcp-server/data/University_Tuition_Policies.md)
 
 ## Quick start (local)
