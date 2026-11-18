@@ -2,6 +2,12 @@
 # PUBLIC_DOMAIN gets a Let's Encrypt certificate, and plain HTTP to it is redirected to HTTPS.
 # Requests by IP address (or any other host) are still served over plain HTTP as a fallback.
 
+{
+	# RSA certificates chain to ISRG Root X1, which every client trusts; the default ECDSA chain goes
+	# through ISRG Root X2, and some OS root stores still hold an expired copy of that root.
+	key_type rsa2048
+}
+
 {$PUBLIC_DOMAIN:localhost} {
 	encode zstd gzip
 	reverse_proxy kong:8000
