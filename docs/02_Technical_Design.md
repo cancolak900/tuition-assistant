@@ -341,7 +341,7 @@ Pages: **Login**, **Chat** (messages, a collapsible **Tool Trace** panel per tur
 | Resource | Spec | Notes |
 |---|---|---|
 | EC2 | `t3.small`, Ubuntu Server 24.04 LTS, 20 GB gp3, 2 GB swap, Elastic IP | Docker Engine + compose plugin from Docker's apt repository. Security group: 80 from anywhere, 22 from the operator's IP only. |
-| RDS | PostgreSQL 16, `db.t4g.micro`, 20 GB gp3, single-AZ, **not public**, initial database `tuition` | SG allows 5432 only from the EC2 instance. TLS is required (`sslmode=require`). |
+| RDS | PostgreSQL 16 (16.15), `db.t4g.micro`, 20 GB gp2, single-AZ, **not public**, initial database `tuition` | SG allows 5432 only from the EC2 instance. TLS is required (`sslmode=require`). |
 | Secrets | `.env` on EC2 (chmod 600) | `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`. Never committed. |
 | Budget | AWS Budgets alarm at $10 | Stop/terminate resources when the demo period ends. |
 
@@ -351,7 +351,7 @@ Deploy (`scripts/deploy.sh`, step by step in [04_Deployment_Guide.md](04_Deploym
 
 **Fallback** (if no AWS account): run the same `docker-compose.yml` locally. The README documents this as a deviation.
 
-**Estimated cost** (`eu-central-1`): EC2 t3.small ≈ $0.024/h, RDS t4g.micro ≈ $0.018/h, a public IPv4 $0.005/h and 40 GB gp3, so about **$1.2/day**, covered by AWS free-plan credits. Gemini: $0 on the free tier.
+**Estimated cost** (`eu-central-1`): EC2 t3.small ≈ $0.024/h, RDS t4g.micro ≈ $0.018/h, a public IPv4 $0.005/h and 40 GB SSD, so about **$1.2/day**, covered by AWS free-plan credits. Gemini: $0 on the free tier.
 
 ---
 

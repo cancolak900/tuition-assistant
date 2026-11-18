@@ -14,7 +14,7 @@ Internet ──80──▶ EC2 (Ubuntu 24.04, Elastic IP)
 |---|---|
 | Region | **Europe (Frankfurt) `eu-central-1`**. Any region works; use the same one for every resource. |
 | EC2 | `t3.small` (2 vCPU, 2 GB), Ubuntu Server 24.04 LTS, 20 GB gp3 |
-| RDS | PostgreSQL 16, `db.t4g.micro`, 20 GB gp3, single-AZ, no public access |
+| RDS | PostgreSQL 16, `db.t4g.micro`, 20 GB gp2, single-AZ, no public access |
 | Network | Default VPC. `tuition-ec2-sg` allows 80 from anywhere and 22 from your IP. `tuition-rds-sg` allows 5432 only from `tuition-ec2-sg`. |
 | Cost | About $1/day while running (see [§9](#9-cost-and-teardown)) |
 
@@ -33,9 +33,9 @@ Console labels change from time to time. If a label below differs slightly, choo
 
 ## 2. Create the RDS database
 1. Open **Aurora and RDS** (search "RDS") → **Databases** → **Create database**.
-2. **Choose a database creation method**: **Full configuration** (called *Standard create* in older consoles), not *Easy create*.
-3. **Engine options**: **PostgreSQL**. For **Engine version**, pick the latest **PostgreSQL 16.x**.
-4. **Templates**: **Free tier** (or *Sandbox*). This selects a single-AZ deployment.
+2. **Engine options**: **PostgreSQL**. The page may open with *Aurora (PostgreSQL Compatible)* and *Express configuration* selected; change both.
+3. **Choose a database creation method**: **Full configuration** (called *Standard create* in older consoles), not *Easy create*. For **Engine version**, pick the latest **PostgreSQL 16.x** (the default is a newer major version). Leave **Enable RDS Extended Support** unticked.
+4. **Templates**: **Free tier** (or *Sandbox*). This selects **Single-AZ DB instance deployment**.
 5. **Settings**:
    - **DB instance identifier**: `tuition-db`
    - **Master username**: `tuition`
@@ -44,9 +44,9 @@ Console labels change from time to time. If a label below differs slightly, choo
    - **Master password**: a strong password made of letters and digits only. Store it in your password manager; it is entered only on the server in [§7](#7-configure-and-start-the-stack).
 6. **Instance configuration**: **Burstable classes** → `db.t4g.micro`.
 7. **Storage**:
-   - **Storage type**: gp3
+   - **Storage type**: General Purpose SSD (gp2 or gp3; both are in the free tier)
    - **Allocated storage**: `20` GiB
-   - Under **Storage autoscaling**, untick **Enable storage autoscaling**.
+   - Open **Additional storage configuration** and untick **Enable storage autoscaling**.
 8. **Connectivity**:
    - **Compute resource**: **Don't connect to an EC2 compute resource**. The instance does not exist yet; the firewall rule is added in [§5](#5-allow-the-server-to-reach-the-database).
    - **Virtual private cloud (VPC)**: the default VPC.
@@ -209,7 +209,7 @@ Approximate on-demand prices in `eu-central-1`:
 | EC2 `t3.small` | ~$0.024/h |
 | RDS `db.t4g.micro` | ~$0.018/h |
 | Public IPv4 address | $0.005/h |
-| Storage (2 × 20 GB gp3) | ~$0.15/day |
+| Storage (2 × 20 GB SSD) | ~$0.15/day |
 | **Total** | **about $1.2/day**, covered by free-plan credits |
 
 **To pause** without losing data:
