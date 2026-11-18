@@ -169,7 +169,7 @@ The API's errors always have the shape `{"error":{"code","message","details"}}`.
 
 **Pay Tuition** records a simulated full or partial payment and answers with status, paid amount and remaining balance. It rejects:
 - an amount above the remaining balance, including any payment when nothing is owed (`422 AMOUNT_EXCEEDS_BALANCE`)
-- a reused `transactionId` (`409 DUPLICATE_TRANSACTION`, nothing is recorded twice)
+- a reused `transactionId` (`409 DUPLICATE_TRANSACTION`, nothing is recorded twice). The 409 details (student, term, amount of the earlier payment) are shown only to the bank or to the student who owns that payment. Anyone else gets the code without details, so a guessed id reveals nothing.
 
 The tuition row is locked during a payment (`SELECT … FOR UPDATE`), so concurrent payments cannot overdraw it. No real money or card data is involved.
 

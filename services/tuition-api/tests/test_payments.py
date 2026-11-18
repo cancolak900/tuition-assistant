@@ -78,6 +78,40 @@ def test_duplicate_transaction_id_409(api, new_student):
     assert _balance(api, no) == "900.00"
 
 
+def test_duplicate_of_another_students_payment_reveals_nothing(api, new_student):
+    """A student who reuses (or guesses) another student's transactionId gets 409 without details."""
+    victim, victim_headers = new_student("1000.00")
+    attacker, attacker_headers = new_student("1000.00")
+    tx = "TX-VICTIM-" + victim
+    assert api.post(PAY, json=_body(victim, "250.00", tx=tx), headers=victim_headers).status_code == 201
+
+    res = api.post(PAY, json=_body(attacker, "1.00", tx=tx), headers=attacker_headers)
+    assert res.status_code == 409
+    err = res.json()["error"]
+    assert err["code"] == "DUPLICATE_TRANSACTION"
+    assert err["details"] is None
+    assert victim not in res.text and "250.00" not in res.text
+    assert _balance(api, attacker) == "1000.00"  # nothing was paid for the caller either
+
+
+def test_seeded_transaction_id_of_s1002_does_not_leak_to_s1001(api, login):
+    """The seed ids are predictable (SEED-S1002-2026-FALL); s1001 must not learn S1002's payment from them."""
+    res = api.post(PAY, json=_body("S1001", "1.00", tx="SEED-S1002-2026-FALL", term="2026-FALL"), headers=login("s1001", "Pass1001!"))
+    assert res.status_code == 409
+    assert res.json()["error"]["details"] is None
+    assert "S1002" not in res.text and "2500.00" not in res.text
+
+
+def test_bank_sees_the_details_of_a_duplicate(api, new_student, login):
+    """The bank may see every payment, so its 409 keeps the details of the earlier payment."""
+    owner, owner_headers = new_student("1000.00")
+    tx = "TX-BANKVIEW-" + owner
+    assert api.post(PAY, json=_body(owner, "300.00", tx=tx), headers=owner_headers).status_code == 201
+    res = api.post(PAY, json=_body(owner, "1.00", tx=tx), headers=login("bank", "Bank123!"))
+    assert res.status_code == 409
+    assert res.json()["error"]["details"] == {"transactionId": tx, "studentNo": owner, "term": TERM, "paidAmount": "300.00"}
+
+
 def test_amount_greater_than_balance_422(api, new_student):
     """T-14: amount > balance -> 422 AMOUNT_EXCEEDS_BALANCE, nothing recorded."""
     no, headers = new_student("1000.00")

@@ -173,7 +173,7 @@ erDiagram
 
 - Unique constraint: `TUITIONS(student_no, term)`.
 - `balance = tuitions.amount − COALESCE(SUM(payments.amount), 0)`. It is computed, not stored, so it cannot drift.
-- Pay Tuition runs in one transaction with `SELECT … FOR UPDATE` on the tuition row, so concurrent payments cannot overdraw the balance. The unique `transaction_id` makes duplicate inserts fail, which gives `409`.
+- Pay Tuition runs in one transaction with `SELECT … FOR UPDATE` on the tuition row, so concurrent payments cannot overdraw the balance. The unique `transaction_id` makes duplicate inserts fail, which gives `409`. The `409` details describe the earlier payment only to the bank or to the student who owns it; for anyone else `details` is `null`, so a guessed or reused id (e.g. the predictable seed ids `SEED-S1002-2026-FALL`) leaks nothing about another student.
 
 ### 4.1 Seed data
 | Username / password | Role | studentNo | Tuition |

@@ -5,6 +5,9 @@ Safety rules:
   payments for the same tuition are serialized and can never overdraw the balance.
 - transaction_id is unique in the database. A repeated id returns 409 and changes nothing, so a
   client (or the agent) can retry safely with the same id.
+- The 409 details (student, term, paid amount of the earlier payment) are only shown to callers who
+  may see that payment: the bank, or the student who owns it. Anyone else gets the code without
+  details, so a guessed transactionId reveals nothing about another student's payment.
 - Overpayment is not supported: amount must be > 0 and <= the current balance.
 """
 
@@ -17,19 +20,21 @@ from sqlalchemy.orm import Session
 from app.errors import AppError
 from app.models import Payment, Tuition
 from app.schemas import PaymentRequest, PaymentResponse, money_str
-from app.security import ROLE_STUDENT, CurrentUser
+from app.security import ROLE_BANK, ROLE_STUDENT, CurrentUser
 from app.services.tuition import get_student_or_404
 
 ZERO = Decimal("0.00")
 
 
-def _duplicate(existing: Payment, tuition: Tuition) -> AppError:
-    return AppError(
-        409,
-        "DUPLICATE_TRANSACTION",
-        "This transactionId was already used; the payment was not applied again.",
-        {"transactionId": existing.transaction_id, "studentNo": tuition.student_no, "term": tuition.term, "paidAmount": money_str(existing.amount)},
+def _duplicate(db: Session, user: CurrentUser, existing: Payment) -> AppError:
+    owner = db.get(Tuition, existing.tuition_id)  # the tuition the earlier payment belongs to
+    visible = user.role == ROLE_BANK or (owner is not None and owner.student_no == user.student_no)
+    details = (
+        {"transactionId": existing.transaction_id, "studentNo": owner.student_no, "term": owner.term, "paidAmount": money_str(existing.amount)}
+        if visible
+        else None
     )
+    return AppError(409, "DUPLICATE_TRANSACTION", "This transactionId was already used; the payment was not applied again.", details)
 
 
 def _paid_total(db: Session, tuition_id: int) -> Decimal:
@@ -41,7 +46,7 @@ def pay_tuition(db: Session, user: CurrentUser, body: PaymentRequest) -> Payment
 
     existing = db.scalar(select(Payment).where(Payment.transaction_id == body.transaction_id))
     if existing is not None:
-        raise _duplicate(existing, db.get(Tuition, existing.tuition_id))
+        raise _duplicate(db, user, existing)
 
     tuition = db.scalar(
         select(Tuition).where(Tuition.student_no == body.student_no, Tuition.term == body.term).with_for_update()
@@ -74,7 +79,7 @@ def pay_tuition(db: Session, user: CurrentUser, body: PaymentRequest) -> Payment
         db.rollback()
         if "uq_payments_transaction_id" in str(exc.orig):
             winner = db.scalar(select(Payment).where(Payment.transaction_id == body.transaction_id))
-            raise _duplicate(winner, tuition) from exc
+            raise _duplicate(db, user, winner) from exc
         raise
 
     total_paid = _paid_total(db, tuition.id)
