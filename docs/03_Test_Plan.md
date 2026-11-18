@@ -114,11 +114,11 @@ python scripts/scenarios.py --base-url http://<aws-host> --user s1002 --password
 For every turn it prints the tool trace (step, kind, tool, status, duration, input) and the reply, then checks the scenario: A1 policy over MCP and "September 30 … §2.1"; A2 live balance over REST; A3 both tools and a §3.x citation; A4 confirmation card first, then `SUCCESS`, the new balance and an identical answer to a repeated Confirm; A5 no data of S1002 and a 403 refusal; A6 the 4th mobile call of the day gets `429` (uses S1020 by default; `--mobile-student` picks another seed student). Without `--yes`, A4 asks before paying. The exit code is 1 if any check fails. Text checks depend on the LLM's wording, so a failed text check should be read, not just counted.
 
 ## 6. Evidence checklist (what goes into `docs/evidence/` and the README)
-- [ ] `pytest -v` output and a screenshot of a green GitHub Actions run
-- [ ] 3 MCP retrieval screenshots/logs (M-03…M-05)
-- [ ] Agent scenarios A1 (MCP-only), A2 (REST-only), A3 (combined), each with its tool trace
-- [ ] A4 confirmed payment: the confirmation card, then the success message and the new balance
-- [ ] A5 refusal of another student's data
-- [ ] E-01/E-02 protected route, E-03 429 error response
-- [ ] Swagger UI screenshot from the deployed URL
+- [x] `pytest -v` output of a green GitHub Actions run (`docs/evidence/unit-tests-ci.log`)
+- [x] 3 MCP retrieval screenshots/logs (M-03…M-05)
+- [x] Agent scenarios A1 (MCP-only), A2 (REST-only), A3 (combined), each with its tool trace
+- [x] A4 confirmed payment: the confirmation card, then the success message and the new balance
+- [x] A5 refusal of another student's data
+- [x] E-01/E-02 protected route, E-03 429 error response
+- [x] Swagger UI screenshot from the deployed URL
 - [ ] Demo video link
