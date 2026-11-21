@@ -20,6 +20,9 @@ from app.errors import AppError
 logger = logging.getLogger(__name__)
 
 TRANSIENT_CODES = {429, 500, 503, 504}  # overload or per-model quota: retry, then try the fallback model
+# Errors after which waiting does not help, so the next model is tried at once:
+#   429 quota, 504 the model's own deadline (it already took ~25 s), 404 a model retired by Google.
+MOVE_ON_CODES = {404, 429, 504}
 # Documented placeholder for function calls replayed to a model that did not produce them.
 SKIP_SIGNATURE = b"skip_thought_signature_validator"
 
@@ -64,7 +67,10 @@ class GeminiLLM:
     """
 
     retry_delays: tuple[float, ...] = (1.0, 2.0)
-    cooldown_seconds = 60.0  # a model that hit its quota or timed out is skipped for a while
+    cooldown_seconds = 60.0  # a model that hit its quota is tried last for a while
+    slow_cooldown_seconds = 300.0  # a model that timed out (or hit its deadline) is tried last for longer
+    gone_cooldown_seconds = 3600.0  # a retired model (404) is not worth another call soon
+    slow_attempt_seconds = 8.0  # a failure that took this long is not retried on the same model
 
     def __init__(self, api_key: str, model: str, temperature: float, fallback_model: str = "", timeout_s: float = 25.0) -> None:
         if not api_key:
@@ -78,8 +84,8 @@ class GeminiLLM:
         self._temperature = temperature
         self._skip_until: dict[str, float] = {}
 
-    def _cool_down(self, model: str) -> None:
-        self._skip_until[model] = time.monotonic() + self.cooldown_seconds
+    def _cool_down(self, model: str, seconds: float | None = None) -> None:
+        self._skip_until[model] = time.monotonic() + (self.cooldown_seconds if seconds is None else seconds)
 
     @staticmethod
     def _contents(history: list[dict[str, Any]], model: str) -> list[Any]:
@@ -112,20 +118,24 @@ class GeminiLLM:
 
         last: Exception | None = None
         for attempt in range(len(self.retry_delays) + 1):
+            started = time.monotonic()
             try:
                 return await self._client.aio.models.generate_content(model=model, contents=self._contents(history, model), config=config)
             except errors.APIError as exc:
                 logger.warning("Gemini %s failed (attempt %d): %s %s", model, attempt + 1, exc.code, exc.message)
-                if exc.code not in TRANSIENT_CODES:
+                if exc.code not in TRANSIENT_CODES | MOVE_ON_CODES:
                     raise AppError(503, "LLM_UNAVAILABLE", "The language model is not reachable right now. Please try again later.") from exc
                 last = exc
-                if exc.code == 429:
-                    self._cool_down(model)
-                    break  # quota: waiting a second will not help, go to the fallback model
+                if exc.code in MOVE_ON_CODES:
+                    self._cool_down(model, {404: self.gone_cooldown_seconds, 504: self.slow_cooldown_seconds}.get(exc.code))
+                    break  # quota, deadline or retired model: retrying the same model only burns the turn budget
+                if time.monotonic() - started >= self.slow_attempt_seconds:
+                    self._cool_down(model, self.slow_cooldown_seconds)
+                    break  # a slow failure would be slow again; three of them used to exceed the 80 s turn limit
             except httpx.TimeoutException as exc:
                 logger.warning("Gemini %s timed out (attempt %d)", model, attempt + 1)
                 last = exc
-                self._cool_down(model)
+                self._cool_down(model, self.slow_cooldown_seconds)
                 break  # a slow model stays slow; do not spend the whole turn budget on it
             if attempt < len(self.retry_delays):
                 await asyncio.sleep(self.retry_delays[attempt])

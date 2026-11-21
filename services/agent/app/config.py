@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-flash-latest"
-    gemini_fallback_model: str = Field("gemini-flash-lite-latest,gemini-2.5-flash-lite", description="Comma-separated models tried in order when the main one is overloaded or out of quota; empty = none")
+    gemini_fallback_model: str = Field("gemini-flash-lite-latest,gemini-3.5-flash-lite", description="Comma-separated models tried in order when the main one is overloaded or out of quota; empty = none")
     llm_timeout_seconds: float = Field(25, gt=0, description="Per LLM call")
     turn_timeout_seconds: float = Field(80, gt=0, description="Whole chat turn; below Kong's 90 s read timeout")
     llm_temperature: float = Field(0.2, ge=0, le=1)

@@ -202,7 +202,7 @@ Contract details: [docs/02_Technical_Design.md §5](docs/02_Technical_Design.md#
 - **LLM:**
   - Google Gemini via `google-genai`, with **manual function calling**: the model returns function calls, and the agent executes them.
   - Up to 5 tool rounds per turn, temperature 0.2.
-  - Primary model `gemini-flash-latest`. On overload or quota errors it falls back to `gemini-flash-lite-latest`, then `gemini-2.5-flash-lite`.
+  - Primary model `gemini-flash-latest`. On overload, quota, deadline or retired-model errors it moves straight on to `gemini-flash-lite-latest`, then `gemini-3.5-flash-lite`.
 - **Tools:**
 
   | Tool | Kind | What the agent does |
@@ -220,7 +220,7 @@ Contract details: [docs/02_Technical_Design.md §5](docs/02_Technical_Design.md#
   - These rules cannot be overridden or revealed by the user.
 - **Tool trace:** every chat and confirm response returns `trace[]` with `{step, kind, tool, input, status, output, durationMs}`. The web UI shows it under each answer, and the agent also logs it as one JSON line per turn. An example is in [docs/evidence/agent-trace.log](docs/evidence/agent-trace.log).
 - **Resilience:**
-  - Retries on 5xx from the model.
+  - A quick 5xx from the model is retried; quota, deadline (504), timeout, retired-model (404) or slow errors move straight to the next model, so one overloaded model cannot use up the turn.
   - 25 s per LLM call and 80 s per turn.
   - Payment results after `/confirm` are fixed texts (English or Turkish), never LLM output.
   - A payment whose outcome is unknown (timeout) keeps its card, and retrying uses the same transaction id, so a duplicate charge is impossible.

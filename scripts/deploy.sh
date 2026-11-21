@@ -82,7 +82,7 @@ JWT_SECRET=${jwt_secret}
 JWT_EXPIRES_MIN=60
 GEMINI_API_KEY=${gemini_key}
 GEMINI_MODEL=gemini-flash-latest
-GEMINI_FALLBACK_MODEL=gemini-flash-lite-latest,gemini-2.5-flash-lite
+GEMINI_FALLBACK_MODEL=gemini-flash-lite-latest,gemini-3.5-flash-lite
 PUBLIC_DOMAIN=${public_domain}
 EOF
   chmod 600 .env

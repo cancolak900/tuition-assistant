@@ -220,6 +220,55 @@ async def test_model_out_of_quota_is_skipped_on_the_next_call():
     assert used == ["gemini-test", "gemini-lite", "gemini-lite"]  # no wasted call on the second turn
 
 
+async def test_deadline_exceeded_moves_on_without_retrying_the_same_model():
+    """504 DEADLINE_EXCEEDED took ~25 s per attempt; three attempts used to exceed the 80 s turn limit."""
+    used = []
+
+    async def handler(*, model, contents, config):
+        used.append(model)
+        if model == "gemini-test":
+            raise errors.APIError(504, {"error": {"code": 504, "message": "Deadline expired", "status": "DEADLINE_EXCEEDED"}})
+        return response(types.Part(text="ok"))
+
+    llm = gemini_with(handler, fallback="gemini-lite")
+    turn = await llm.generate("s", [{"role": "user", "text": "q"}], TOOLS)
+    assert (turn.text, turn.model) == ("ok", "gemini-lite")
+    assert used == ["gemini-test", "gemini-lite"]
+    await llm.generate("s", [{"role": "user", "text": "q"}], TOOLS)
+    assert used[-1] == "gemini-lite"  # the slow model waits at the back of the queue
+
+
+async def test_retired_model_404_is_skipped_instead_of_failing_the_turn():
+    used = []
+
+    async def handler(*, model, contents, config):
+        used.append(model)
+        if model == "gemini-old":
+            raise errors.APIError(404, {"error": {"code": 404, "message": "no longer available", "status": "NOT_FOUND"}})
+        return response(types.Part(text="ok"))
+
+    llm = GeminiLLM("test-key", "gemini-old", 0.2, "gemini-new")
+    llm.retry_delays = (0, 0)
+    llm._client = SimpleNamespace(aio=SimpleNamespace(models=SimpleNamespace(generate_content=handler)))
+    turn = await llm.generate("s", [{"role": "user", "text": "q"}], TOOLS)
+    assert (turn.text, used) == ("ok", ["gemini-old", "gemini-new"])
+
+
+async def test_slow_overload_is_not_retried_on_the_same_model():
+    used = []
+
+    async def handler(*, model, contents, config):
+        used.append(model)
+        if model == "gemini-test":
+            raise errors.APIError(503, {"error": {"code": 503, "message": "high demand", "status": "UNAVAILABLE"}})
+        return response(types.Part(text="ok"))
+
+    llm = gemini_with(handler, fallback="gemini-lite")
+    llm.slow_attempt_seconds = 0  # every failure counts as slow
+    turn = await llm.generate("s", [{"role": "user", "text": "q"}], TOOLS)
+    assert turn.text == "ok" and used == ["gemini-test", "gemini-lite"]
+
+
 def test_fallback_list_is_tried_in_order_without_duplicates():
     llm = GeminiLLM("test-key", "gemini-a", 0.2, " gemini-b, gemini-a ,gemini-c,")
     assert llm.models == ["gemini-a", "gemini-b", "gemini-c"]
