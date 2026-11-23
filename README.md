@@ -13,7 +13,7 @@ An LLM (Google Gemini, real function calling) picks the tools. The agent runs ea
 | **Live demo** | **https://tuition.cancolak.dev** (AWS EC2 + RDS, HTTPS) |
 | **API gateway base URL** | `https://tuition.cancolak.dev/api/v1` (fallback without TLS: `http://18.153.247.247/api/v1`) |
 | **Swagger UI** | https://tuition.cancolak.dev/api/v1/docs · [docs/openapi.json](docs/openapi.json) |
-| **Demo video** | *added after recording* |
+| **Demo video** | https://www.youtube.com/watch?v=MJSPkEC_o8E (narration in Turkish) |
 
 ---
 

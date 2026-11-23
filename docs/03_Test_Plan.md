@@ -121,4 +121,4 @@ For every turn it prints the tool trace (step, kind, tool, status, duration, inp
 - [x] A5 refusal of another student's data
 - [x] E-01/E-02 protected route, E-03 429 error response
 - [x] Swagger UI screenshot from the deployed URL
-- [ ] Demo video link
+- [x] Demo video link: https://www.youtube.com/watch?v=MJSPkEC_o8E
